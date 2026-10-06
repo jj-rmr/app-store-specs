@@ -1,50 +1,76 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { MOCK_USERS } from "./mockCredentials";
-
-type User = { id: string; email: string; name: string };
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { getAuthRepo } from "../data/factory";
+import type { GoogleAccount } from "../data/repositories";
+import type { User } from "../data/types";
 
 type AuthContext = {
   user: User | null;
+  loading: boolean;
   signin: (email: string, password: string) => Promise<boolean>;
-  signout: () => void;
+  signinWithGoogleAccount: (
+    account: GoogleAccount,
+  ) => Promise<{ ok: boolean; user?: User; picture?: string; error?: string }>;
+  signout: () => Promise<void>;
+  updateName: (name: string) => Promise<void>;
 };
 
 const ctx = createContext<AuthContext | undefined>(undefined);
 
-const STORAGE_KEY = "auth_user";
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Load user from localStorage on mount
+  // Restore session via repo so a future HTTP backend needs no UI change.
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        setUser(JSON.parse(stored));
-      } catch (e) {
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    }
+    let cancelled = false;
+    getAuthRepo()
+      .getSession()
+      .then((session) => {
+        if (!cancelled) setUser(session);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const signin = async (email: string, password: string) => {
-    const found = MOCK_USERS.find((u) => u.email === email && u.password === password);
-    if (found) {
-      const userData = { id: found.id, email: found.email, name: found.name };
-      setUser(userData);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+    try {
+      const session = await getAuthRepo().signin(email, password);
+      setUser(session);
       return true;
+    } catch {
+      return false;
     }
-    return false;
   };
 
-  const signout = () => {
+  const signinWithGoogleAccount = async (account: GoogleAccount) => {
+    try {
+      const { user: session, picture } = await getAuthRepo().signinWithGoogleAccount(account);
+      setUser(session);
+      return { ok: true as const, user: session, picture };
+    } catch (e) {
+      return { ok: false as const, error: e instanceof Error ? e.message : "Google sign-in failed." };
+    }
+  };
+
+  const signout = async () => {
+    await getAuthRepo().signout();
     setUser(null);
-    localStorage.removeItem(STORAGE_KEY);
   };
 
-  return <ctx.Provider value={{ user, signin, signout }}>{children}</ctx.Provider>;
+  const updateName = async (name: string) => {
+    const updated = await getAuthRepo().updateName(name);
+    setUser(updated);
+  };
+
+  return (
+    <ctx.Provider value={{ user, loading, signin, signinWithGoogleAccount, signout, updateName }}>
+      {children}
+    </ctx.Provider>
+  );
 };
 
 export const useAuth = () => {
