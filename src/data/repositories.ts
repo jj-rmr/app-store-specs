@@ -1,11 +1,11 @@
 import type {
-  Activity,
   AppInput,
   AppItem,
   AppUpdate,
   Builder,
   Comment,
   ListAppsParams,
+  Milestone,
   Profile,
   User,
 } from "./types";
@@ -39,10 +39,12 @@ export type AppRepo = {
   deleteApp(appId: string, author: User): Promise<void>;
   toggleVote(appId: string, userId: string): Promise<AppItem>;
   listBuilders(): Promise<Builder[]>;
-  listActivity(): Promise<Activity[]>;
   listComments(appId: string, userId?: string): Promise<Comment[]>;
   addComment(appId: string, author: User, body: string, parentId?: string): Promise<Comment>;
   toggleCommentLike(appId: string, commentId: string, userId: string): Promise<Comment>;
+  listMilestones(userId?: string): Promise<Milestone[]>;
+  postMilestone(author: User, body: string, appId?: string): Promise<Milestone>;
+  toggleMilestoneCheer(milestoneId: string, userId: string): Promise<Milestone>;
 };
 
 export type ProfilePatch = {

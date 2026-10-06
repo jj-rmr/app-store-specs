@@ -5,6 +5,7 @@ import {
   ChatCircleDots,
   GameController,
   GraduationCap,
+  HandsClapping,
   Images,
   LinkSimple,
   MagnifyingGlass,
@@ -14,7 +15,6 @@ import {
   SignOut,
   Sparkle,
   SquaresFour,
-  TrendUp,
   User as UserIcon,
   UsersThree,
   Wrench,
@@ -31,7 +31,7 @@ import { getAppRepo, getProfileRepo } from "../data/factory";
 import { indexProfiles } from "../data/profileLinks";
 import { fileToThumbnailDataUrl } from "../utils/images";
 import { readMarkdownFile } from "../utils/readMarkdownFile";
-import type { Activity, AppItem, Category, CategoryFilter, Profile } from "../data/types";
+import type { AppItem, Category, CategoryFilter, Milestone, Profile } from "../data/types";
 
 const categories: { label: CategoryFilter; Icon: typeof SquaresFour }[] = [
   { label: "All", Icon: SquaresFour },
@@ -92,13 +92,6 @@ const copyForView: Record<StoreView, { stamp: string; title: string; description
   },
 };
 
-const activityIcon = {
-  launch: RocketLaunch,
-  feedback: ChatCircleDots,
-  milestone: TrendUp,
-  join: UsersThree,
-} as const;
-
 export default function Store() {
   const { user, signout } = useAuth();
   const [apps, setApps] = useState<AppItem[]>([]);
@@ -107,7 +100,14 @@ export default function Store() {
   const [fullApps, setFullApps] = useState<AppItem[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [myProfile, setMyProfile] = useState<Profile | null>(null);
-  const [activity, setActivity] = useState<Activity[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [milestonesLoading, setMilestonesLoading] = useState(true);
+  const [milestonesError, setMilestonesError] = useState<string | null>(null);
+  const [mBody, setMBody] = useState("");
+  const [mAppId, setMAppId] = useState("");
+  const [mPosting, setMPosting] = useState(false);
+  const [mPostError, setMPostError] = useState<string | null>(null);
+  const [cheerPending, setCheerPending] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryFilter>("All");
   const [showForm, setShowForm] = useState(false);
@@ -158,24 +158,86 @@ export default function Store() {
         if (user) {
           await getProfileRepo().ensureUserProfile(user);
         }
-        const [list, act] = await Promise.all([
-          getProfileRepo().listProfiles(),
-          getAppRepo().listActivity(),
-        ]);
+        const list = await getProfileRepo().listProfiles();
         if (cancelled) return;
         setProfiles(list);
-        setActivity(act);
         if (user) {
           setMyProfile(list.find((p) => p.id === user.id) ?? null);
         }
       } catch {
-        if (!cancelled) setActivity([]);
+        if (!cancelled) setProfiles([]);
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [user]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setMilestonesLoading(true);
+    setMilestonesError(null);
+    getAppRepo()
+      .listMilestones(user?.id)
+      .then((items) => {
+        if (!cancelled) setMilestones(items);
+      })
+      .catch((e) => {
+        if (!cancelled) setMilestonesError(e instanceof Error ? e.message : "Could not load updates.");
+      })
+      .finally(() => {
+        if (!cancelled) setMilestonesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  const postMilestone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !mBody.trim() || mPosting) return;
+    setMPosting(true);
+    setMPostError(null);
+    try {
+      const created = await getAppRepo().postMilestone(user, mBody.trim(), mAppId || undefined);
+      setMilestones((items) => [created, ...items]);
+      setMBody("");
+      setMAppId("");
+    } catch (err) {
+      setMPostError(err instanceof Error ? err.message : "Could not post update.");
+    } finally {
+      setMPosting(false);
+    }
+  };
+
+  const cheer = async (m: Milestone) => {
+    if (!user || cheerPending.has(m.id)) return;
+    setCheerPending((prev) => new Set(prev).add(m.id));
+    const wasCheered = Boolean(m.viewerHasCheered);
+    setMilestones((items) =>
+      items.map((x) =>
+        x.id === m.id
+          ? {
+              ...x,
+              viewerHasCheered: !wasCheered,
+              cheers: Math.max(0, (x.cheers ?? 0) + (wasCheered ? -1 : 1)),
+            }
+          : x,
+      ),
+    );
+    try {
+      const updated = await getAppRepo().toggleMilestoneCheer(m.id, user.id);
+      setMilestones((items) => items.map((x) => (x.id === m.id ? { ...x, ...updated } : x)));
+    } catch {
+      setMilestones((items) => items.map((x) => (x.id === m.id ? m : x)));
+    } finally {
+      setCheerPending((prev) => {
+        const next = new Set(prev);
+        next.delete(m.id);
+        return next;
+      });
+    }
+  };
 
   const loadApps = useCallback(async () => {
     setAppsLoading(true);
@@ -903,31 +965,158 @@ export default function Store() {
           {view === "community" && (
             <section id="activity" className="mt-2 scroll-mt-6">
               <div className="mb-6">
-                <p className="text-xs font-black uppercase text-purple">Recent updates</p>
-                <h2 className="mt-1 text-2xl font-black">Community activity</h2>
+                <p className="text-xs font-black uppercase text-purple">Builder progress</p>
+                <h2 className="mt-1 text-2xl font-black">Milestones wall</h2>
+                <p className="mt-2 max-w-2xl font-bold text-muted">
+                  Ship an update on what you built, link the project, and cheer others on.
+                </p>
               </div>
-              <div className="grid gap-7 lg:grid-cols-[1fr_.7fr]">
-                <div className="toon-card rounded-lg bg-surface">
-                  {activity.map(({ id, text, time, color, kind }) => {
-                    const Icon = activityIcon[kind];
-                    return (
-                      <div
-                        key={id}
-                        className="flex items-center gap-4 border-b-2 border-dashed border-divider p-5 last:border-0"
-                      >
-                        <span
-                          style={{ backgroundColor: `var(--color-${color})` }}
-                          className="grid h-10 w-10 shrink-0 place-items-center rounded-full border-2 border-ink"
+              <div className="grid items-start gap-7 lg:grid-cols-[1fr_.7fr]">
+                <div className="min-w-0">
+                  <form
+                    onSubmit={(e) => void postMilestone(e)}
+                    className="toon-card paper-note rounded-lg bg-sky p-6 pt-10"
+                  >
+                    <h3 className="text-xl font-black">Share an update</h3>
+                    <label className="mt-4 block">
+                      <span className="sr-only">What did you ship or learn?</span>
+                      <textarea
+                        value={mBody}
+                        onChange={(e) => setMBody(e.target.value)}
+                        maxLength={280}
+                        required
+                        placeholder="What did you ship or learn?…"
+                        className="toon-input min-h-24"
+                      />
+                    </label>
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <label className="min-w-0 flex-1">
+                        <span className="sr-only">Link one of your projects (optional)</span>
+                        <select
+                          value={mAppId}
+                          onChange={(e) => setMAppId(e.target.value)}
+                          className="toon-input py-2 text-sm"
                         >
-                          <Icon size={20} weight="duotone" />
-                        </span>
-                        <div>
-                          <p className="font-black">{text}</p>
-                          <p className="text-xs font-bold text-muted">{time}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
+                          <option value="">No linked project</option>
+                          {user &&
+                            fullApps
+                              .filter((a) =>
+                                a.creatorId
+                                  ? a.creatorId === user.id
+                                  : a.creator === user.name,
+                              )
+                              .map((a) => (
+                                <option key={a.id} value={a.id}>
+                                  {a.title}
+                                </option>
+                              ))}
+                        </select>
+                      </label>
+                      <span className="text-xs font-black text-muted">{mBody.length}/280</span>
+                      <button
+                        type="submit"
+                        disabled={mPosting || !mBody.trim()}
+                        className="toon-button rounded-2xl bg-purple px-5 py-2.5 text-sm text-surface"
+                      >
+                        {mPosting ? "Posting…" : "Post update"}
+                      </button>
+                    </div>
+                    {mPostError && (
+                      <p role="alert" className="mt-3 text-sm font-bold">
+                        {mPostError}
+                      </p>
+                    )}
+                  </form>
+
+                  {milestonesLoading ? (
+                    <p className="mt-6 font-bold text-muted">Loading updates…</p>
+                  ) : milestonesError ? (
+                    <div className="toon-card paper-note mt-6 rounded-lg p-10 text-center">
+                      <h3 className="text-xl font-black">Could not load updates</h3>
+                      <p className="font-bold text-muted">{milestonesError}</p>
+                    </div>
+                  ) : milestones.length ? (
+                    <ul className="mt-6 space-y-4">
+                      {milestones.map((m) => {
+                        const p = profilesLookup.get(m.authorId);
+                        const linked = m.appId
+                          ? fullApps.find((a) => a.id === m.appId)
+                          : undefined;
+                        return (
+                          <li key={m.id} className="toon-card rounded-lg bg-surface p-5">
+                            <div className="flex items-center gap-3">
+                              {p ? (
+                                <button
+                                  onClick={() => openProfile(p.id)}
+                                  aria-label={`View ${p.name}'s profile`}
+                                  className="shrink-0"
+                                >
+                                  <Avatar
+                                    name={p.name}
+                                    color={p.color}
+                                    imageUrl={p.imageUrl}
+                                    size="sm"
+                                  />
+                                </button>
+                              ) : (
+                                <Avatar name={m.authorName} color="sky" size="sm" />
+                              )}
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-black">
+                                  {p ? (
+                                    <button
+                                      onClick={() => openProfile(p.id)}
+                                      className="underline decoration-2 underline-offset-4"
+                                    >
+                                      {m.authorName}
+                                    </button>
+                                  ) : (
+                                    m.authorName
+                                  )}
+                                </p>
+                                <p className="text-xs font-bold text-muted">
+                                  {new Date(m.createdAt).toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
+                            <p className="mt-3 leading-7">{m.body}</p>
+                            <div className="mt-3 flex flex-wrap items-center gap-3">
+                              {linked && (
+                                <button
+                                  onClick={() => openApp(linked.id)}
+                                  className="rounded-md border-2 border-ink bg-cream px-2.5 py-1 text-xs font-black hover:bg-yellow"
+                                >
+                                  View {linked.title}
+                                </button>
+                              )}
+                              <button
+                                onClick={() => void cheer(m)}
+                                aria-pressed={Boolean(m.viewerHasCheered)}
+                                disabled={!user || cheerPending.has(m.id)}
+                                className={`flex items-center gap-1 text-sm font-black disabled:opacity-60 ${m.viewerHasCheered ? "text-vote" : "text-muted"}`}
+                              >
+                                <HandsClapping
+                                  size={18}
+                                  weight={m.viewerHasCheered ? "fill" : "duotone"}
+                                />
+                                {m.cheers ?? 0}
+                                <span className="sr-only">
+                                  {m.viewerHasCheered ? "Uncheer" : "Cheer this on"}
+                                </span>
+                              </button>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <div className="toon-card paper-note mt-6 rounded-lg p-10 text-center">
+                      <h3 className="text-xl font-black">No updates yet</h3>
+                      <p className="font-bold text-muted">
+                        Be the first to share what you shipped.
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <aside className="toon-card paper-note rounded-lg bg-yellow p-6 pt-10">
                   <Sparkle size={35} weight="duotone" />

@@ -81,12 +81,16 @@ export type Comment = {
   viewerHasLiked?: boolean;
 };
 
-export type ActivityKind = "launch" | "feedback" | "milestone" | "join";
-
-export type Activity = {
+export type Milestone = {
   id: string;
-  text: string;
-  time: string;
-  color: string;
-  kind: ActivityKind;
+  authorId: string;
+  authorName: string;
+  body: string;
+  appId?: string;
+  createdAt: string;
+  cheers?: number;
+  cheeredBy?: string[];
+  viewerHasCheered?: boolean;
 };
+
+

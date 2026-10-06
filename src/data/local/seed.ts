@@ -1,4 +1,4 @@
-import type { Activity, AppItem, Builder, Comment, Profile } from "../types";
+import type { AppItem, Builder, Comment, Milestone, Profile } from "../types";
 
 export const seedApps: AppItem[] = [
   {
@@ -112,13 +112,6 @@ export const seedBuilders: Builder[] = [
   { name: "Sam Rivera", role: "Education technology", apps: 2, color: "sky" },
   { name: "Nica Flores", role: "Creative tools", apps: 2, color: "lavender" },
   { name: "Jules Tan", role: "Team collaboration", apps: 3, color: "yellow" },
-];
-
-export const seedActivity: Activity[] = [
-  { id: "a1", text: "Nica shared Moodboard Mix", time: "12 minutes ago", color: "yellow", kind: "launch" },
-  { id: "a2", text: "Sam left feedback on Sketch Relay", time: "35 minutes ago", color: "sky", kind: "feedback" },
-  { id: "a3", text: "Study Buddy reached 100 upvotes", time: "1 hour ago", color: "mint", kind: "milestone" },
-  { id: "a4", text: "Jules joined the community", time: "2 hours ago", color: "pink", kind: "join" },
 ];
 
 export const seedProfiles: Profile[] = [
@@ -312,3 +305,35 @@ export const seedComments: Record<string, Comment[]> = {
     },
   ],
 };
+
+export const seedMilestones: Milestone[] = [
+  {
+    id: "m-1",
+    authorId: "mia-santos",
+    authorName: "Mia Santos",
+    body: "Study Buddy v2 is live: shared 25/5 timer with reconnect-safe streaks. Try it with your study group tonight!",
+    appId: "1",
+    createdAt: "2026-09-22T09:00:00.000Z",
+    cheers: 2,
+    cheeredBy: ["leo-cruz", "sam-rivera"],
+  },
+  {
+    id: "m-2",
+    authorId: "ari-mendoza",
+    authorName: "Ari Mendoza",
+    body: "Sketch Relay mobile timer bumped to 90 seconds after your feedback. Chaos, but at a humane pace.",
+    appId: "4",
+    createdAt: "2026-09-16T10:00:00.000Z",
+    cheers: 1,
+    cheeredBy: ["jules-tan"],
+  },
+  {
+    id: "m-3",
+    authorId: "leo-cruz",
+    authorName: "Leo Cruz",
+    body: "Vendor onboarding sprint starts Monday — goal is 20 canteens on Campus Bites before midterms week.",
+    createdAt: "2026-09-20T14:00:00.000Z",
+    cheers: 0,
+    cheeredBy: [],
+  },
+];

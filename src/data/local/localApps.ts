@@ -1,19 +1,20 @@
 import { NotFoundError, type AppRepo } from "../repositories";
 import type {
-  Activity,
   AppInput,
   AppItem,
   AppUpdate,
   Builder,
   Comment,
   ListAppsParams,
+  Milestone,
   User,
 } from "../types";
-import { seedActivity, seedApps, seedBuilders, seedComments } from "./seed";
+import { seedApps, seedBuilders, seedComments, seedMilestones } from "./seed";
 
 const APPS_KEY = "cc.apps.v1";
 const VOTES_KEY = "cc.votes.v1";
 const COMMENTS_KEY = "cc.comments.v1";
+const MILESTONES_KEY = "cc.milestones.v1";
 
 type VotesStore = Record<string, string[]>;
 type CommentsStore = Record<string, Comment[]>;
@@ -112,6 +113,34 @@ function loadComments(): CommentsStore {
 
 function saveComments(store: CommentsStore): void {
   localStorage.setItem(COMMENTS_KEY, JSON.stringify(store));
+}
+
+function loadMilestones(): Milestone[] {
+  try {
+    const raw = localStorage.getItem(MILESTONES_KEY);
+    if (!raw) {
+      localStorage.setItem(MILESTONES_KEY, JSON.stringify(seedMilestones));
+      return structuredClone(seedMilestones);
+    }
+    const parsed = JSON.parse(raw) as Milestone[];
+    if (!Array.isArray(parsed)) return structuredClone(seedMilestones);
+    return parsed;
+  } catch {
+    return structuredClone(seedMilestones);
+  }
+}
+
+function saveMilestones(milestones: Milestone[]): void {
+  localStorage.setItem(MILESTONES_KEY, JSON.stringify(milestones));
+}
+
+function normalizeMilestone(m: Milestone): Milestone {
+  const cheeredBy = Array.isArray(m.cheeredBy) ? m.cheeredBy : [];
+  return {
+    ...m,
+    cheers: typeof m.cheers === "number" ? m.cheers : cheeredBy.length,
+    cheeredBy,
+  };
 }
 
 function normalizeComment(c: Comment): Comment {
@@ -306,11 +335,6 @@ export function createLocalAppRepo(): AppRepo {
       return [...seedBuilders];
     },
 
-    async listActivity(): Promise<Activity[]> {
-      await delay(60);
-      return [...seedActivity];
-    },
-
     async listComments(appId: string, userId?: string): Promise<Comment[]> {
       await delay(80);
       const store = loadComments();
@@ -355,6 +379,60 @@ export function createLocalAppRepo(): AppRepo {
       saveComments({ ...store, [appId]: next });
       saveApps(apps.map((a) => (a.id === appId ? { ...a, comments: next.length } : a)));
       return { ...comment, viewerHasLiked: false };
+    },
+
+    async listMilestones(userId?: string): Promise<Milestone[]> {
+      await delay(80);
+      return loadMilestones()
+        .map(normalizeMilestone)
+        .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+        .map((m) => ({
+          ...m,
+          viewerHasCheered: userId ? Boolean(m.cheeredBy?.includes(userId)) : false,
+        }));
+    },
+
+    async postMilestone(author: User, body: string, appId?: string): Promise<Milestone> {
+      await delay(120);
+      const text = body.trim();
+      if (!text) throw new Error("Update cannot be empty.");
+      if (text.length > 280) throw new Error("Keep updates under 280 characters.");
+      if (appId) {
+        const apps = loadApps();
+        const target = apps.find((a) => a.id === appId);
+        if (!target) throw new NotFoundError("Project not found.");
+        const owned = target.creatorId
+          ? target.creatorId === author.id
+          : target.creator.toLowerCase() === author.name.toLowerCase();
+        if (!owned) throw new Error("You can only link your own projects.");
+      }
+      const milestone: Milestone = {
+        id: newId(),
+        authorId: author.id,
+        authorName: author.name,
+        body: text,
+        appId: appId || undefined,
+        createdAt: new Date().toISOString(),
+        cheers: 0,
+        cheeredBy: [],
+        viewerHasCheered: false,
+      };
+      const next = [milestone, ...loadMilestones()];
+      saveMilestones(next);
+      return milestone;
+    },
+
+    async toggleMilestoneCheer(milestoneId: string, userId: string): Promise<Milestone> {
+      await delay(80);
+      const milestones = loadMilestones().map(normalizeMilestone);
+      const target = milestones.find((m) => m.id === milestoneId);
+      if (!target) throw new NotFoundError("Update not found.");
+      const cheered = new Set(target.cheeredBy ?? []);
+      if (cheered.has(userId)) cheered.delete(userId);
+      else cheered.add(userId);
+      const updated: Milestone = { ...target, cheeredBy: [...cheered], cheers: cheered.size };
+      saveMilestones(milestones.map((m) => (m.id === milestoneId ? updated : m)));
+      return { ...updated, viewerHasCheered: cheered.has(userId) };
     },
 
     async toggleCommentLike(appId: string, commentId: string, userId: string): Promise<Comment> {
