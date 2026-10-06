@@ -22,6 +22,7 @@ import {
 } from "@phosphor-icons/react";
 import { useAuth } from "../auth/AuthProvider";
 import Brand from "../components/Brand";
+<<<<<<< HEAD
 import AppCard from "../components/AppCard";
 import Avatar from "../components/Avatar";
 import Markdown from "../components/Markdown";
@@ -32,6 +33,10 @@ import { indexProfiles } from "../data/profileLinks";
 import { fileToThumbnailDataUrl } from "../utils/images";
 import { readMarkdownFile } from "../utils/readMarkdownFile";
 import type { Activity, AppItem, Category, CategoryFilter, Profile } from "../data/types";
+=======
+import { Button } from "../components/Button";
+import Input from "../components/Input";
+>>>>>>> fd0d70cac548cb65406a4c8d17c35fa0f4d403c5
 
 const categories: { label: CategoryFilter; Icon: typeof SquaresFour }[] = [
   { label: "All", Icon: SquaresFour },
@@ -375,9 +380,10 @@ export default function Store() {
 
   return (
     <div className="min-h-screen overflow-x-clip">
-      <aside className="fixed inset-x-0 top-0 z-40 h-[85px] border-b-[3px] border-ink bg-purple p-5 text-surface lg:inset-y-0 lg:left-0 lg:right-auto lg:h-screen lg:w-[280px] lg:border-b-0 lg:border-r-[3px] lg:p-7">
+      <aside className="fixed inset-x-0 top-0 z-40 h-21.5 border-b-[3px] border-ink bg-purple p-5 text-surface lg:inset-y-0 lg:left-0 lg:right-auto lg:h-screen lg:w-70 lg:border-b-0 lg:border-r-[3px] lg:p-7">
         <div className="flex items-center justify-between">
           <Brand light />
+<<<<<<< HEAD
           <div className="flex items-center gap-2 lg:hidden">
             {myProfile && (
               <button onClick={(e) => openMyProfile(e)} aria-label="View my profile">
@@ -398,9 +404,14 @@ export default function Store() {
               <SignOut size={20} weight="bold" />
             </button>
           </div>
+=======
+          <Button onClick={logout} aria-label="Sign out" variant="outline" className="lg:hidden">
+            <SignOut size={20} weight="bold" />
+          </Button>
+>>>>>>> fd0d70cac548cb65406a4c8d17c35fa0f4d403c5
         </div>
         <nav
-          className="fixed inset-x-0 bottom-0 z-50 grid h-[72px] grid-cols-3 gap-2 border-t-2 border-ink bg-purple p-2 lg:static lg:mt-12 lg:block lg:h-auto lg:space-y-2 lg:border-0 lg:bg-transparent lg:p-0 lg:pr-1"
+          className="fixed inset-x-0 bottom-0 z-50 grid h-18 grid-cols-3 gap-2 border-t-2 border-ink bg-purple p-2 lg:static lg:mt-12 lg:block lg:h-auto lg:space-y-2 lg:border-0 lg:bg-transparent lg:p-0 lg:pr-1"
           aria-label="Main navigation"
         >
           <a href="/store" onClick={(event) => goTab(event, "discover")} className={navClass("discover")}>
@@ -449,16 +460,21 @@ export default function Store() {
               Find collaborators, share progress, and exchange useful feedback.
             </p>
           </div>
+<<<<<<< HEAD
           <button
             onClick={() => void logout()}
             className="mt-7 flex items-center gap-2 text-sm font-black underline decoration-2 underline-offset-4"
           >
+=======
+          <Button onClick={logout} variant="ghost" className="mt-7">
+>>>>>>> fd0d70cac548cb65406a4c8d17c35fa0f4d403c5
             <SignOut size={19} weight="bold" />
             Sign out
-          </button>
+          </Button>
         </div>
       </aside>
 
+<<<<<<< HEAD
       <div className="min-w-0 px-5 pb-[92px] pt-[105px] sm:px-8 sm:pb-[100px] sm:pt-[117px] lg:ml-[280px] lg:p-10">
         <nav
           aria-label="Breadcrumb"
@@ -494,6 +510,9 @@ export default function Store() {
             ))}
           </ol>
         </nav>
+=======
+      <div className="min-w-0 px-5 pb-23 pt-26.5 sm:px-8 sm:pb-25 sm:pt-29.5 lg:ml-70 lg:p-10">
+>>>>>>> fd0d70cac548cb65406a4c8d17c35fa0f4d403c5
         <header id="discover" className="mx-auto max-w-6xl scroll-mt-5">
           <div className="flex flex-wrap items-start justify-between gap-5">
             <div>
@@ -501,6 +520,7 @@ export default function Store() {
               <h1 className="mt-4 text-3xl font-black sm:text-4xl">{copyForView[view].title}</h1>
               <p className="mt-3 max-w-2xl text-muted">{copyForView[view].description}</p>
             </div>
+<<<<<<< HEAD
             {view !== "profile" && view !== "project" && (
               <button
                 onClick={() => setShowForm((open) => !open)}
@@ -510,6 +530,12 @@ export default function Store() {
                 {showForm ? "Close" : "Submit a project"}
               </button>
             )}
+=======
+            <Button onClick={() => setShowForm((open) => !open)} variant="secondary">
+              {showForm ? <X size={20} weight="bold" /> : <Plus size={20} weight="bold" />}
+              {showForm ? "Close" : "Submit a project"}
+            </Button>
+>>>>>>> fd0d70cac548cb65406a4c8d17c35fa0f4d403c5
           </div>
           {view === "discover" && (
             <label className="relative mt-8 block">
@@ -519,10 +545,10 @@ export default function Store() {
                 weight="bold"
                 className="absolute left-5 top-1/2 -translate-y-1/2"
               />
-              <input
+              <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                className="toon-input py-4 pl-14"
+                variant="search"
                 placeholder="Search projects, descriptions, or developers"
               />
             </label>
@@ -542,8 +568,7 @@ export default function Store() {
               </div>
               <label>
                 <span className="toon-label">Project name</span>
-                <input
-                  className="toon-input"
+                <Input
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                   required
@@ -552,8 +577,7 @@ export default function Store() {
               </label>
               <label>
                 <span className="toon-label">What does it do?</span>
-                <input
-                  className="toon-input"
+                <Input
                   value={desc}
                   onChange={(event) => setDesc(event.target.value)}
                   required
@@ -581,8 +605,8 @@ export default function Store() {
                     weight="bold"
                     className="absolute left-4 top-1/2 -translate-y-1/2"
                   />
-                  <input
-                    className="toon-input pl-12"
+                  <Input
+                    className="pl-12"
                     type="url"
                     value={url}
                     onChange={(event) => setUrl(event.target.value)}
@@ -595,6 +619,7 @@ export default function Store() {
                   Add the live demo, repository, or project page you want the community to visit.
                 </span>
               </label>
+<<<<<<< HEAD
               <div className="sm:col-span-2">
                 <span className="toon-label">Thumbnails (up to 3, first is the cover)</span>
                 <label className="toon-button cursor-pointer rounded-2xl bg-surface text-sm">
@@ -740,6 +765,11 @@ export default function Store() {
                 {submitting ? "Publishing…" : imageBusy ? "Processing images…" : "Publish project"}{" "}
                 <ArrowRight size={20} weight="bold" />
               </button>
+=======
+              <Button type="submit" className="sm:col-span-2 sm:justify-self-start">
+                Publish project <ArrowRight size={20} weight="bold" />
+              </Button>
+>>>>>>> fd0d70cac548cb65406a4c8d17c35fa0f4d403c5
             </form>
           )}
 
@@ -796,15 +826,15 @@ export default function Store() {
               </div>
               <div className="mb-6 flex flex-wrap gap-2">
                 {categories.map(({ label, Icon }) => (
-                  <button
+                  <Button
                     key={label}
                     onClick={() => setCategory(label)}
                     aria-pressed={category === label}
-                    className={`flex min-w-max items-center gap-2 rounded-md border-2 border-ink px-3 py-2 text-sm font-black ${category === label ? "bg-purple text-surface" : "bg-surface"}`}
+                    variant="filter"
                   >
                     <Icon size={19} weight="duotone" />
                     {label}
-                  </button>
+                  </Button>
                 ))}
               </div>
               {appsLoading ? (
@@ -948,3 +978,62 @@ export default function Store() {
     </div>
   );
 }
+<<<<<<< HEAD
+=======
+
+function AppCard({
+  app,
+  voted,
+  onVote,
+}: {
+  app: AppItem;
+  voted: boolean;
+  onVote: (id: string) => void;
+}) {
+  return (
+    <article className="toon-card paper-note rounded-lg p-5 pt-9">
+      <div
+        style={{ backgroundColor: `var(--color-${app.color})` }}
+        className="project-cover flex h-32 items-center justify-center rounded-sm border-[3px] border-ink"
+      >
+        <span className="rotate-[-4deg] text-4xl font-black">{app.title.charAt(0)}</span>
+      </div>
+      <div>
+        <div className="mt-5 flex items-start justify-between gap-3 sm:mt-0">
+          <div>
+            <span className="text-[10px] font-black uppercase text-purple">{app.category}</span>
+            <h3 className="text-xl font-black">{app.title}</h3>
+          </div>
+        </div>
+        <p className="mt-2 text-sm leading-6 text-muted">{app.description}</p>
+        <p className="mt-3 text-xs font-black">by {app.creator}</p>
+        <div className="mt-5 flex items-center gap-4 border-t-2 border-dashed border-divider pt-4">
+          <Button
+            onClick={() => onVote(app.id)}
+            aria-pressed={voted}
+            variant="vote"
+            className={voted ? "text-vote" : ""}
+          >
+            <Heart size={20} weight={voted ? "fill" : "duotone"} />
+            {app.votes}
+          </Button>
+          <span className="flex items-center gap-1 text-sm font-black">
+            <ChatCircleDots size={20} weight="duotone" />
+            {app.comments}
+          </span>
+          {app.url && (
+            <a
+              href={app.url}
+              target="_blank"
+              rel="noreferrer"
+              className="ml-auto flex items-center gap-1 text-sm font-black underline decoration-2 underline-offset-4"
+            >
+              Open app <ArrowRight size={16} weight="bold" />
+            </a>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+>>>>>>> fd0d70cac548cb65406a4c8d17c35fa0f4d403c5

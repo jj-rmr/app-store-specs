@@ -2,7 +2,9 @@ import React, { useState } from "react";
 import { GoogleOAuthProvider, useGoogleLogin, type TokenResponse } from "@react-oauth/google";
 import { ArrowLeft, ArrowRight, LockKey, Sparkle } from "@phosphor-icons/react";
 import { useAuth } from "../auth/AuthProvider";
+import { Button } from "../components/Button";
 import Brand from "../components/Brand";
+<<<<<<< HEAD
 import { getProfileRepo } from "../data/factory";
 import type { GoogleAccount } from "../data/repositories";
 
@@ -82,6 +84,9 @@ function GoogleContinueButton({
     </button>
   );
 }
+=======
+import Input from "../components/Input";
+>>>>>>> fd0d70cac548cb65406a4c8d17c35fa0f4d403c5
 
 export default function Login() {
   const { signin, signinWithGoogleAccount } = useAuth();
@@ -139,24 +144,22 @@ export default function Login() {
           <form onSubmit={submit} className="space-y-5">
             <label className="block">
               <span className="toon-label">Email address</span>
-              <input
+              <Input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 type="email"
                 autoComplete="email"
-                className="toon-input"
                 required
               />
             </label>
             <label className="block">
               <span className="toon-label">Password</span>
-              <input
+              <Input
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 type="password"
                 autoComplete="current-password"
                 placeholder="Enter your password"
-                className="toon-input"
                 required
               />
             </label>
@@ -168,9 +171,9 @@ export default function Login() {
                 {error}
               </p>
             )}
-            <button className="toon-button w-full rounded-2xl bg-purple text-surface">
+            <Button type="submit" fullWidth>
               Continue <ArrowRight size={20} weight="bold" />
-            </button>
+            </Button>
           </form>
           <div className="my-6 flex items-center gap-3 text-xs font-black uppercase text-muted">
             <span className="h-0.5 flex-1 rounded bg-divider" aria-hidden="true" />
