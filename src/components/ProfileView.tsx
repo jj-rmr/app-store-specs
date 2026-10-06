@@ -286,12 +286,30 @@ export default function ProfileView({ profileId, currentUser, onBack, onOpenApp 
               onClick={() => onOpenApp(app.id)}
               className="toon-card paper-note rounded-lg p-5 pt-9 text-left"
             >
-              <div
-                style={{ backgroundColor: `var(--color-${app.color})` }}
-                className="project-cover flex h-24 items-center justify-center rounded-sm border-[3px] border-ink"
-              >
-                <span className="rotate-[-4deg] text-3xl font-black">{app.title.charAt(0)}</span>
-              </div>
+              {app.screenshots?.[0] ? (
+                <span className="relative block h-24 w-full overflow-hidden rounded-sm border-[3px] border-ink bg-ink">
+                  <img
+                    src={app.screenshots[0]}
+                    alt=""
+                    aria-hidden="true"
+                    loading="lazy"
+                    className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-xl"
+                  />
+                  <img
+                    src={app.screenshots[0]}
+                    alt={`${app.title} thumbnail`}
+                    loading="lazy"
+                    className="relative h-full w-full object-contain"
+                  />
+                </span>
+              ) : (
+                <div
+                  style={{ backgroundColor: `var(--color-${app.color})` }}
+                  className="project-cover flex h-24 items-center justify-center rounded-sm border-[3px] border-ink"
+                >
+                  <span className="rotate-[-4deg] text-3xl font-black">{app.title.charAt(0)}</span>
+                </div>
+              )}
               <p className="mt-4 text-[10px] font-black uppercase text-purple">{app.category}</p>
               <h4 className="text-lg font-black">{app.title}</h4>
               <p className="mt-1 text-sm leading-6 text-muted">{app.description}</p>
