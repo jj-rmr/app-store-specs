@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { ArrowRight, ChatCircleDots, Heart, X } from "@phosphor-icons/react";
 import Avatar from "./Avatar";
 import Comments from "./Comments";
+import MentionText from "./MentionText";
+import TrophyMark from "./TrophyMark";
 import { profileForApp } from "../data/profileLinks";
 import type { AppItem, Profile, User } from "../data/types";
 
@@ -15,6 +17,8 @@ type AppCardProps = {
   onToggle: (id: string) => void;
   onCommentAdded: (appId: string, count: number) => void;
   profiles: Map<string, Profile>;
+  trophies: Map<string, 1 | 2 | 3>;
+  projectTrophies: Map<string, 1 | 2 | 3>;
   onOpenProfile: (profileId: string) => void;
   onOpenApp: (appId: string) => void;
   onEditApp: (appId: string) => void;
@@ -29,6 +33,8 @@ export default function AppCard({
   onToggle,
   onCommentAdded,
   profiles,
+  trophies,
+  projectTrophies,
   onOpenProfile,
   onOpenApp,
   onEditApp,
@@ -53,7 +59,16 @@ export default function AppCard({
     user && (app.creatorId ? app.creatorId === user.id : app.creator === user.name);
 
   return (
-    <article className="toon-card paper-note rounded-lg p-5 pt-9">
+    <article
+      className="toon-card paper-note rounded-lg p-5 pt-9"
+      style={(() => {
+        const place = projectTrophies.get(app.id);
+        if (place === 1) return { backgroundColor: "#F7DE6B" };
+        if (place === 2) return { backgroundColor: "#DDE3EA" };
+        if (place === 3) return { backgroundColor: "#EAC39E" };
+        return undefined;
+      })()}
+    >
       <button
         onClick={() => onOpenApp(app.id)}
         aria-label={`Open ${app.title} details`}
@@ -92,10 +107,41 @@ export default function AppCard({
               <button onClick={() => onOpenApp(app.id)} className="text-left hover:underline">
                 {app.title}
               </button>
+              {projectTrophies.get(app.id) !== undefined && (
+                <TrophyMark place={projectTrophies.get(app.id) as 1 | 2 | 3} size={22} />
+              )}
             </h3>
           </div>
         </div>
-        <p className="mt-2 text-sm leading-6 text-muted">{app.description}</p>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          <MentionText
+            text={app.description}
+            profiles={[...profiles.values()]}
+            onOpenProfile={onOpenProfile}
+          />
+        </p>
+        {(() => {
+          const collabs = (app.collaborators ?? [])
+            .map((id) => profiles.get(id))
+            .filter((p): p is Profile => Boolean(p));
+          if (!collabs.length) return null;
+          return (
+            <p className="mt-2 text-xs font-black">
+              <span className="uppercase text-muted">Collaborators: </span>
+              {collabs.map((p, i) => (
+                <span key={p.id}>
+                  {i > 0 && <span className="text-muted">, </span>}
+                  <button
+                    onClick={() => onOpenProfile(p.id)}
+                    className="underline decoration-2 underline-offset-4"
+                  >
+                    {p.name}
+                  </button>
+                </span>
+              ))}
+            </p>
+          );
+        })()}
         <p className="mt-3 text-xs font-black">
           by{" "}
           {creatorProfile ? (
@@ -107,6 +153,9 @@ export default function AppCard({
             </button>
           ) : (
             creatorName
+          )}
+          {creatorProfile && trophies.get(creatorProfile.id) !== undefined && (
+            <TrophyMark place={trophies.get(creatorProfile.id) as 1 | 2 | 3} size={16} />
           )}
         </p>
         <div className="mt-5 flex items-center gap-4 border-t-2 border-dashed border-divider pt-4">
@@ -183,6 +232,7 @@ export default function AppCard({
                     appTitle={app.title}
                     currentUser={user}
                     profiles={profiles}
+                    trophies={trophies}
                     onOpenProfile={onOpenProfile}
                     onCommentAdded={onCommentAdded}
                     stickyForm

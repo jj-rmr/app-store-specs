@@ -8,6 +8,7 @@ import {
 } from "@phosphor-icons/react";
 import { ButtonLink } from "../components/Button";
 import Brand from "../components/Brand";
+import Footer from "../components/Footer";
 
 export default function Home() {
   return (
@@ -90,20 +91,25 @@ export default function Home() {
           <p className="text-xs font-black uppercase text-purple">How CodeCanvas works</p>
           <h2 className="mt-3 text-3xl font-black">A shared space for student software.</h2>
         </div>
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
+        <div className="mt-10 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
           {[
             {
               n: "01",
+              t: "Sign in",
+              d: "Join with your email or Google account to unlock the full community.",
+            },
+            {
+              n: "02",
               t: "Publish a project",
               d: "Give your app a clear home and make it easy for others to try.",
             },
             {
-              n: "02",
+              n: "03",
               t: "Find collaborators",
               d: "Connect with students working on related tools and problems.",
             },
             {
-              n: "03",
+              n: "04",
               t: "Improve through feedback",
               d: "Exchange useful reviews and help promising projects move forward.",
             },
@@ -119,6 +125,10 @@ export default function Home() {
           ))}
         </div>
       </section>
+
+      <div className="-mx-5 lg:-mx-10">
+        <Footer />
+      </div>
     </div>
   );
 }

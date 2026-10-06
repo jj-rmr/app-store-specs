@@ -111,7 +111,7 @@ body::before {
     linear-gradient(90deg, transparent 63px, var(--color-margin-line) 64px, transparent 65px),
     linear-gradient(var(--color-paper-line) 1px, transparent 1px),
     linear-gradient(90deg, var(--color-paper-line) 1px, transparent 1px);
-    /* radial-gradient(var(--color-ink-dots) 1px, transparent 1px) */
+  /* radial-gradient(var(--color-ink-dots) 1px, transparent 1px) */
   background-size:
     100vw 100%,
     24px 24px,
@@ -287,6 +287,26 @@ nav {
   border-color: var(--color-purple);
 }
 
+.markdown-textarea {
+  max-height: min(60vh, 32rem);
+  scrollbar-color: var(--color-yellow) transparent;
+  scrollbar-width: thin;
+}
+
+.markdown-textarea::-webkit-scrollbar {
+  width: 10px;
+}
+
+.markdown-textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.markdown-textarea::-webkit-scrollbar-thumb {
+  background: var(--color-yellow);
+  border: 2px solid var(--color-surface);
+  border-radius: 999px;
+}
+
 @utility toon-label {
   @apply mb-2 block text-xs font-black uppercase;
 }
@@ -371,7 +391,9 @@ nav {
 .md-doc h1,
 .md-doc h2,
 .md-doc h3,
-.md-doc h4 {
+.md-doc h4,
+.md-doc h5,
+.md-doc h6 {
   margin: 1.25em 0 0.5em;
   color: var(--color-ink);
   font-weight: 900;
@@ -387,8 +409,14 @@ nav {
 }
 
 .md-doc h3,
-.md-doc h4 {
+.md-doc h4,
+.md-doc h5,
+.md-doc h6 {
   font-size: 1.05rem;
+}
+
+.md-doc--viewer {
+  max-width: none;
 }
 
 .md-doc p {
@@ -424,6 +452,11 @@ nav {
 .md-doc li > ul,
 .md-doc li > ol {
   margin: 0.3em 0;
+}
+
+.md-doc li input[type="checkbox"] {
+  margin-right: 0.4rem;
+  accent-color: var(--color-purple);
 }
 
 .md-doc blockquote {
@@ -490,4 +523,12 @@ nav {
   max-width: 100%;
   border: 3px solid var(--color-ink);
   border-radius: 0.75rem;
+}
+
+.md-doc--viewer pre {
+  max-width: 100%;
+}
+
+.md-doc--viewer table {
+  max-width: 100%;
 }

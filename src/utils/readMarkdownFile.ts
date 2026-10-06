@@ -1,21 +1,12 @@
-// Reads a user-picked README text file. Accepts .md, .markdown, .txt, and
-// extensionless GitHub READMEs — gates on content (real text? not binary?)
-// instead of the file name.
-export async function readMarkdownFile(file: File | undefined): Promise<{ name: string; text: string }> {
-  if (!file) throw new Error("No file selected.");
-  if (
-    file.type.startsWith("image/") ||
-    file.type.startsWith("video/") ||
-    file.type.startsWith("audio/")
-  ) {
-    throw new Error("That is a media file. Pick your README text file instead.");
+export function validateMarkdownText(
+  name: string,
+  text: string,
+  maxCharacters = 50000,
+): { name: string; text: string } {
+  if (!text.trim()) throw new Error("That file is empty. Pick a file with content.");
+  if (text.length > maxCharacters) {
+    throw new Error(`That file is too long. Keep it under ${maxCharacters} characters.`);
   }
-  if (file.size > 200_000) throw new Error("That README is too big. Keep it under 200KB.");
-  const text = await file.text().catch(() => {
-    throw new Error("Could not read that file.");
-  });
-  if (!text.trim()) throw new Error("That file is empty. Pick a README with content.");
-  if (text.length > 50000) throw new Error("That README is too long. Keep it under 50000 characters.");
   // file.text() decodes as UTF-8, replacing invalid bytes with U+FFFD,
   // so binary files (zip, exe, pdf) show up as replacement chars / control codes.
   const sample = text.slice(0, 4000);
@@ -27,7 +18,26 @@ export async function readMarkdownFile(file: File | undefined): Promise<{ name: 
     }
   }
   if (suspicious / sample.length > 0.02) {
-    throw new Error("That doesn't look like a text README. Pick the .md / README text file.");
+    throw new Error("That doesn't look like a text file. Pick a Markdown or README file.");
   }
-  return { name: file.name, text };
+  return { name, text };
+}
+
+// Reads a user-picked Markdown or text file, including extensionless READMEs.
+export async function readMarkdownFile(
+  file: File | undefined,
+): Promise<{ name: string; text: string }> {
+  if (!file) throw new Error("No file selected.");
+  if (
+    file.type.startsWith("image/") ||
+    file.type.startsWith("video/") ||
+    file.type.startsWith("audio/")
+  ) {
+    throw new Error("That is a media file. Pick a Markdown or text file instead.");
+  }
+  if (file.size > 200_000) throw new Error("That file is too big. Keep it under 200KB.");
+  const text = await file.text().catch(() => {
+    throw new Error("Could not read that file.");
+  });
+  return validateMarkdownText(file.name, text);
 }

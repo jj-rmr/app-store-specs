@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { ArrowLeft, ChatCircleDots, Heart, Images, PencilSimple } from "@phosphor-icons/react";
 import Avatar from "./Avatar";
+import MentionText from "./MentionText";
+import TrophyMark from "./TrophyMark";
 import { useAuth } from "../auth/AuthProvider";
 import { getAppRepo, getProfileRepo } from "../data/factory";
 import { fileToThumbnailDataUrl } from "../utils/images";
@@ -9,13 +11,17 @@ import type { AppItem, Profile, User } from "../data/types";
 type ProfileViewProps = {
   profileId: string;
   currentUser: User | null;
+  trophies: Map<string, 1 | 2 | 3>;
+  projectTrophies: Map<string, 1 | 2 | 3>;
+  profiles: Map<string, Profile>;
   onBack: () => void;
   onOpenApp: (appId: string) => void;
+  onOpenProfile: (profileId: string) => void;
 };
 
 const AVATAR_COLORS = ["pink", "yellow", "mint", "sky", "lavender", "purple"] as const;
 
-export default function ProfileView({ profileId, currentUser, onBack, onOpenApp }: ProfileViewProps) {
+export default function ProfileView({ profileId, currentUser, trophies, projectTrophies, profiles, onBack, onOpenApp, onOpenProfile }: ProfileViewProps) {
   const { updateName } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [apps, setApps] = useState<AppItem[]>([]);
@@ -137,7 +143,12 @@ export default function ProfileView({ profileId, currentUser, onBack, onOpenApp 
           <Avatar name={profile.name} color={profile.color} imageUrl={profile.imageUrl} size="xl" />
           <div className="min-w-0 flex-1">
             <p className="ink-stamp bg-surface">{isSelf ? "Your profile" : "Developer"}</p>
-            <h2 className="mt-3 text-3xl font-black">{profile.name}</h2>
+            <h2 className="mt-3 text-3xl font-black">
+              {profile.name}
+              {trophies.get(profile.id) !== undefined && (
+                <TrophyMark place={trophies.get(profile.id) as 1 | 2 | 3} size={32} />
+              )}
+            </h2>
             <p className="mt-1 font-bold text-muted">{profile.role}</p>
             {profile.bio && <p className="mt-3 max-w-2xl leading-7 text-body">{profile.bio}</p>}
             <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm font-black">
@@ -311,8 +322,19 @@ export default function ProfileView({ profileId, currentUser, onBack, onOpenApp 
                 </div>
               )}
               <p className="mt-4 text-[10px] font-black uppercase text-purple">{app.category}</p>
-              <h4 className="text-lg font-black">{app.title}</h4>
-              <p className="mt-1 text-sm leading-6 text-muted">{app.description}</p>
+              <h4 className="text-lg font-black">
+                {app.title}
+                {projectTrophies.get(app.id) !== undefined && (
+                  <TrophyMark place={projectTrophies.get(app.id) as 1 | 2 | 3} size={20} />
+                )}
+              </h4>
+              <p className="mt-1 text-sm leading-6 text-muted">
+                <MentionText
+                  text={app.description}
+                  profiles={[...profiles.values()]}
+                  onOpenProfile={onOpenProfile}
+                />
+              </p>
               <p className="mt-3 flex items-center gap-4 text-sm font-black">
                 <span className="flex items-center gap-1">
                   <Heart size={18} weight="duotone" /> {app.votes}

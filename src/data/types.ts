@@ -19,8 +19,10 @@ export type AppItem = {
   comments: number;
   color: string;
   url?: string;
+  repoUrl?: string;
   screenshots?: string[];
   docs?: string;
+  collaborators?: string[];
   createdAt: string;
   viewerHasVoted?: boolean;
 };
@@ -29,18 +31,22 @@ export type AppInput = {
   title: string;
   description: string;
   url?: string;
+  repoUrl?: string;
   category: Category;
   screenshots?: string[];
   docs?: string;
+  collaborators?: string[];
 };
 
 export type AppUpdate = {
   title?: string;
   description?: string;
   url?: string;
+  repoUrl?: string;
   category?: Category;
   screenshots?: string[];
   docs?: string;
+  collaborators?: string[];
 };
 
 export type ListAppsParams = {

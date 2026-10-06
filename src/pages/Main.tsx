@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../auth/AuthProvider";
+import About from "./About";
 import Login from "./Login";
 import Store from "./Store";
 import Home from "./Home";
@@ -28,6 +29,12 @@ export default function Main() {
         </div>
       </main>
     );
+  if (path === "/about")
+    return (
+      <main className="min-h-screen">
+        <About />
+      </main>
+    );
   if (user)
     return (
       <main className="min-h-screen">
@@ -35,7 +42,7 @@ export default function Main() {
       </main>
     );
   if (
-    ["/signin", "/store", "/dashboard", "/apps", "/builders", "/community", "/profile", "/developers", "/projects"].includes(
+    ["/signin", "/store", "/dashboard", "/apps", "/builders", "/community", "/leaderboard", "/profile", "/developers", "/projects"].includes(
       path,
     ) ||
     path.startsWith("/builders/") ||

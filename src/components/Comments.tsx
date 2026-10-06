@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ChatCircleDots, Heart } from "@phosphor-icons/react";
 import Avatar from "./Avatar";
+import TrophyMark from "./TrophyMark";
 import { getAppRepo } from "../data/factory";
 import { profileForComment } from "../data/profileLinks";
 import type { Comment, Profile, User } from "../data/types";
@@ -10,6 +11,7 @@ type CommentsProps = {
   appTitle: string;
   currentUser: User | null;
   profiles: Map<string, Profile>;
+  trophies: Map<string, 1 | 2 | 3>;
   onOpenProfile: (profileId: string) => void;
   onCommentAdded?: (appId: string, count: number) => void;
   stickyForm?: boolean;
@@ -21,11 +23,13 @@ const REPLY_STEP = 3;
 function authorHeader(
   c: Comment,
   profiles: Map<string, Profile>,
+  trophies: Map<string, 1 | 2 | 3>,
   onOpenProfile: (profileId: string) => void,
   avatarSize: "sm" = "sm",
 ) {
   const p = profileForComment(c, profiles);
   const displayName = p ? p.name : c.authorName;
+  const place = trophies.get(c.authorId);
   return (
     <div className="flex items-center gap-2">
       {p ? (
@@ -49,7 +53,9 @@ function authorHeader(
           </button>
         ) : (
           displayName
-        )}{" "}
+        )}
+        {place !== undefined && <TrophyMark place={place} size={16} />}
+        {" "}
         <span className="font-bold text-muted">· {new Date(c.createdAt).toLocaleString()}</span>
       </p>
     </div>
@@ -61,6 +67,7 @@ export default function Comments({
   appTitle,
   currentUser,
   profiles,
+  trophies,
   onOpenProfile,
   onCommentAdded,
   stickyForm = false,
@@ -251,7 +258,7 @@ export default function Comments({
             : "rounded-lg bg-cream/60 p-2.5"
         }
       >
-        {authorHeader(c, profiles, onOpenProfile)}
+        {authorHeader(c, profiles, trophies, onOpenProfile)}
         <p className="mt-1.5 text-sm leading-6">
           {depth >= 2 && parent && (
             <span

@@ -200,12 +200,17 @@ export function createLocalAppRepo(): AppRepo {
       const title = input.title.trim();
       const description = input.description.trim();
       const url = input.url?.trim();
+      const repoUrl = input.repoUrl?.trim();
       const docs = input.docs?.trim();
       if (!title || !description) throw new Error("Title and description are required.");
+      if (url && !/^https?:\/\//i.test(url)) throw new Error("App link must start with http(s)://.");
+      if (repoUrl && !/^https?:\/\//i.test(repoUrl))
+        throw new Error("Repo link must start with http(s)://.");
       if (title.length > 80) throw new Error("Keep the project name under 80 characters.");
       if (description.length > 280) throw new Error("Keep the description under 280 characters.");
       if (docs && docs.length > 50000) throw new Error("Keep documentation under 50000 characters.");
       const screenshots = (input.screenshots ?? []).filter(Boolean).slice(0, 3);
+      const collaborators = (input.collaborators ?? []).filter(Boolean).slice(0, 10);
       for (const src of screenshots) {
         // ~500KB cap per image keeps the whole local DB inside localStorage quota.
         if (src.length > 500_000) throw new Error("Images are too large. Pick smaller files.");
@@ -222,7 +227,9 @@ export function createLocalAppRepo(): AppRepo {
         comments: 0,
         color: palette[apps.length % palette.length],
         url: url ? url : undefined,
+        repoUrl: repoUrl ? repoUrl : undefined,
         screenshots: screenshots.length ? screenshots : undefined,
+        collaborators: collaborators.length ? collaborators : undefined,
         docs: docs ? docs : undefined,
         createdAt: new Date().toISOString(),
         viewerHasVoted: false,
@@ -249,6 +256,7 @@ export function createLocalAppRepo(): AppRepo {
       const description =
         patch.description !== undefined ? patch.description.trim() : target.description;
       const url = patch.url !== undefined ? patch.url.trim() : (target.url ?? "");
+      const repoUrl = patch.repoUrl !== undefined ? patch.repoUrl.trim() : (target.repoUrl ?? "");
       const docs = patch.docs !== undefined ? patch.docs.trim() : (target.docs ?? "");
       if (!title) throw new Error("Title is required.");
       if (!description) throw new Error("Description is required.");
@@ -260,6 +268,10 @@ export function createLocalAppRepo(): AppRepo {
         patch.screenshots !== undefined
           ? patch.screenshots.filter(Boolean).slice(0, 3)
           : (target.screenshots ?? []);
+      const collaborators =
+        patch.collaborators !== undefined
+          ? patch.collaborators.filter(Boolean).slice(0, 10)
+          : (target.collaborators ?? []);
       for (const src of screenshots) {
         if (src.length > 500_000) throw new Error("Images are too large. Pick smaller files.");
       }
@@ -270,6 +282,8 @@ export function createLocalAppRepo(): AppRepo {
               title,
               description,
               url: url ? url : undefined,
+              repoUrl: repoUrl ? repoUrl : undefined,
+              collaborators: collaborators.length ? collaborators : undefined,
               category: patch.category ?? a.category,
               screenshots: screenshots.length ? screenshots : undefined,
               docs: docs ? docs : undefined,

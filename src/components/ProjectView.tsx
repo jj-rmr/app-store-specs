@@ -6,6 +6,8 @@ import {
   BookOpen,
   BookOpenText,
   ChatCircleDots,
+  Eye,
+  DownloadSimple,
   Heart,
   Images,
   LinkSimple,
@@ -14,18 +16,32 @@ import {
   X,
 } from "@phosphor-icons/react";
 import Avatar from "./Avatar";
+import CollaboratorPicker from "./CollaboratorPicker";
 import Comments from "./Comments";
+import MentionInput from "./MentionInput";
+import MentionText from "./MentionText";
+import TrophyMark from "./TrophyMark";
 import Markdown from "./Markdown";
+import MarkdownTextarea from "./MarkdownTextarea";
 import { getAppRepo, getProfileRepo } from "../data/factory";
 import { profileIdForApp } from "../data/profileLinks";
 import { fileToThumbnailDataUrl } from "../utils/images";
+import { extractMentionIds } from "../utils/mentions";
 import { readMarkdownFile } from "../utils/readMarkdownFile";
+import {
+  isGitHubRepositoryUrl,
+  listGitHubMarkdownFiles,
+  readGitHubMarkdownFiles,
+  readGitHubReadme,
+} from "../utils/readGitHubReadme";
 import type { AppItem, Category, Profile, User } from "../data/types";
 
 type ProjectViewProps = {
   appId: string;
   currentUser: User | null;
   profiles: Map<string, Profile>;
+  trophies: Map<string, 1 | 2 | 3>;
+  projectTrophies: Map<string, 1 | 2 | 3>;
   onBack: () => void;
   onOpenProfile: (profileId: string) => void;
   onChanged: () => void;
@@ -35,7 +51,7 @@ type ProjectViewProps = {
 
 const DOCS_PREVIEW_LIMIT = 1000;
 
-function DocsSection({ text }: { text: string }) {
+function DocsSection({ text, source }: { text: string; source?: string }) {
   const COLLAPSED_PX = 320;
   const STEP_PX = 600;
   const long = text.length > DOCS_PREVIEW_LIMIT;
@@ -82,12 +98,31 @@ function DocsSection({ text }: { text: string }) {
     setHeight(null);
   };
   const collapse = () => setHeight(COLLAPSED_PX);
+  const download = () => {
+    const blobUrl = URL.createObjectURL(new Blob([text], { type: "text/markdown;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = source === "README.md from GitHub" ? "README.md" : "documentation.md";
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  };
 
   return (
     <section className="toon-card paper-note mt-8 rounded-lg p-6 pt-10 sm:p-8 sm:pt-12">
       <div className="mb-3 flex items-center gap-2">
         <BookOpen size={22} weight="duotone" />
         <h3 className="text-2xl font-black">Documentation</h3>
+      </div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        {source && <p className="text-xs font-black uppercase text-muted">{source}</p>}
+        <button
+          type="button"
+          onClick={download}
+          className="toon-button rounded-2xl bg-surface text-sm"
+        >
+          <DownloadSimple size={19} weight="bold" />
+          Download documentation
+        </button>
       </div>
       <div
         ref={contentRef}
@@ -167,6 +202,8 @@ export default function ProjectView({
   appId,
   currentUser,
   profiles,
+  trophies,
+  projectTrophies,
   onBack,
   onOpenProfile,
   onChanged,
@@ -178,15 +215,28 @@ export default function ProjectView({
   const [feedbackCount, setFeedbackCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [repositoryReadme, setRepositoryReadme] = useState<string | null>(null);
+  const [readmeLoading, setReadmeLoading] = useState(false);
+  const [readmeError, setReadmeError] = useState<string | null>(null);
   const [editing, setEditing] = useState(startEditing);
   const [eTitle, setETitle] = useState("");
   const [eDesc, setEDesc] = useState("");
+  const [eCollabIds, setECollabIds] = useState<string[]>([]);
   const [eUrl, setEUrl] = useState("");
+  const [eRepoUrl, setERepoUrl] = useState("");
   const [eCategory, setECategory] = useState<Category>("Productivity");
   const [eShots, setEShots] = useState<string[]>([]);
   const [eDocs, setEDocs] = useState("");
-  const [eDocsTab, setEDocsTab] = useState<"write" | "upload" | "preview">("write");
+  const [eDocsTab, setEDocsTab] = useState<"write" | "upload" | "repository" | "preview">("write");
+  const [eDocsPreviewReturnTab, setEDocsPreviewReturnTab] =
+    useState<"write" | "upload" | "repository">("write");
   const [eDocsFile, setEDocsFile] = useState<string | null>(null);
+  const [eRepositoryFiles, setERepositoryFiles] = useState<string[]>([]);
+  const [eSelectedRepositoryFiles, setESelectedRepositoryFiles] = useState<string[]>([]);
+  const [eRepositoryFilesLoading, setERepositoryFilesLoading] = useState(false);
+  const [eRepositoryFilesImporting, setERepositoryFilesImporting] = useState(false);
+  const [eRepositoryFilesError, setERepositoryFilesError] = useState<string | null>(null);
+  const eRepositoryRequest = useRef<AbortController | null>(null);
   const [eBusy, setEBusy] = useState(false);
   const [eImgError, setEImgError] = useState<string | null>(null);
   const [eSaving, setESaving] = useState(false);
@@ -230,6 +280,33 @@ export default function ProjectView({
   }, [appId, currentUser?.id, profiles]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    setRepositoryReadme(null);
+    setReadmeError(null);
+
+    if (!app?.url || app.docs?.trim() || !isGitHubRepositoryUrl(app.url)) {
+      setReadmeLoading(false);
+      return () => controller.abort();
+    }
+
+    setReadmeLoading(true);
+    void readGitHubReadme(app.url, controller.signal)
+      .then(setRepositoryReadme)
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted) {
+          setReadmeError(
+            cause instanceof Error ? cause.message : "Could not load the repository README.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setReadmeLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [app?.docs, app?.url]);
+
+  useEffect(() => {
     if (!lightbox) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setLightbox(null);
@@ -253,6 +330,7 @@ export default function ProjectView({
     try {
       const updated = await getAppRepo().toggleVote(app.id, currentUser.id);
       setApp(updated);
+      onChanged();
     } catch {
       setApp(previous);
     }
@@ -267,15 +345,100 @@ export default function ProjectView({
     if (!app) return;
     setETitle(app.title);
     setEDesc(app.description);
+    setECollabIds(app.collaborators ?? []);
     setEUrl(app.url ?? "");
+    setERepoUrl(app.repoUrl ?? "");
     setECategory(app.category);
     setEShots(app.screenshots ?? []);
     setEDocs(app.docs ?? "");
     setEDocsTab("write");
+    setEDocsPreviewReturnTab("write");
     setEDocsFile(null);
+    setERepositoryFiles([]);
+    setESelectedRepositoryFiles([]);
+    setERepositoryFilesLoading(false);
+    setERepositoryFilesImporting(false);
+    setERepositoryFilesError(null);
     setEError(null);
     setConfirmDelete(false);
     setEditing(true);
+  };
+
+  // Docs import source: the repo link, falling back to the app link for
+  // older projects that stored a GitHub URL there.
+  const eDocsRepoUrl = eRepoUrl.trim() || (isGitHubRepositoryUrl(eUrl) ? eUrl.trim() : "");
+
+  const eResetRepositoryFiles = () => {
+    eRepositoryRequest.current?.abort();
+    setERepositoryFiles([]);
+    setESelectedRepositoryFiles([]);
+    setERepositoryFilesLoading(false);
+    setERepositoryFilesImporting(false);
+    setERepositoryFilesError(null);
+  };
+
+  const eLoadRepositoryFiles = async () => {
+    if (!isGitHubRepositoryUrl(eDocsRepoUrl)) {
+      setERepositoryFilesError("Enter a public GitHub repository URL in the repo link first.");
+      return;
+    }
+    eRepositoryRequest.current?.abort();
+    const controller = new AbortController();
+    eRepositoryRequest.current = controller;
+    setERepositoryFilesLoading(true);
+    setERepositoryFilesError(null);
+    setERepositoryFiles([]);
+    setESelectedRepositoryFiles([]);
+    try {
+      const paths = await listGitHubMarkdownFiles(eDocsRepoUrl, controller.signal);
+      if (controller.signal.aborted) return;
+      setERepositoryFiles(paths);
+      const readme = paths.find((path) => /^readme\.md$/i.test(path));
+      if (readme) setESelectedRepositoryFiles([readme]);
+      if (!paths.length)
+        setERepositoryFilesError("No Markdown files were found in this repository.");
+    } catch (cause) {
+      if (!controller.signal.aborted) {
+        setERepositoryFilesError(
+          cause instanceof Error ? cause.message : "Could not list repository Markdown files.",
+        );
+      }
+    } finally {
+      if (!controller.signal.aborted) setERepositoryFilesLoading(false);
+    }
+  };
+
+  const eImportRepositoryFiles = async () => {
+    if (!eSelectedRepositoryFiles.length || eRepositoryFilesImporting) return;
+    eRepositoryRequest.current?.abort();
+    const controller = new AbortController();
+    eRepositoryRequest.current = controller;
+    setERepositoryFilesImporting(true);
+    setERepositoryFilesError(null);
+    try {
+      const files = await readGitHubMarkdownFiles(
+        eDocsRepoUrl,
+        eSelectedRepositoryFiles,
+        controller.signal,
+      );
+      if (controller.signal.aborted) return;
+      const combined = files.map(({ path, text }) => `# ${path}\n\n${text}`).join("\n\n---\n\n");
+      setEDocs(combined);
+      setEDocsFile(
+        files.length === 1 ? files[0].path : `${files.length} repository Markdown files`,
+      );
+      setEDocsPreviewReturnTab("repository");
+      setEDocsTab("preview");
+      setEError(null);
+    } catch (cause) {
+      if (!controller.signal.aborted) {
+        setERepositoryFilesError(
+          cause instanceof Error ? cause.message : "Could not import repository Markdown files.",
+        );
+      }
+    } finally {
+      if (!controller.signal.aborted) setERepositoryFilesImporting(false);
+    }
   };
 
   const deleteProject = async () => {
@@ -314,18 +477,18 @@ export default function ProjectView({
     setESaving(true);
     setEError(null);
     try {
-      const updated = await getAppRepo().updateApp(
-        app.id,
-        currentUser,
-        {
-          title: eTitle,
-          description: eDesc,
-          url: eUrl,
-          category: eCategory,
-          screenshots: eShots,
-          docs: eDocs,
-        },
-        );
+      const updated = await getAppRepo().updateApp(app.id, currentUser, {
+        title: eTitle,
+        description: eDesc,
+        url: eUrl,
+        repoUrl: eRepoUrl,
+        category: eCategory,
+        screenshots: eShots,
+        docs: eDocs,
+        collaborators: [
+          ...new Set([...eCollabIds, ...extractMentionIds(eDesc, [...profiles.values()])]),
+        ],
+      });
       setApp(updated);
       setEditing(false);
       onChanged();
@@ -354,10 +517,7 @@ export default function ProjectView({
 
   return (
     <div>
-      <button
-        onClick={onBack}
-        className="toon-button rounded-2xl bg-surface px-4 py-2 text-sm"
-      >
+      <button onClick={onBack} className="toon-button rounded-2xl bg-surface px-4 py-2 text-sm">
         <ArrowLeft size={18} weight="bold" /> Back to projects
       </button>
 
@@ -402,8 +562,19 @@ export default function ProjectView({
               </button>
             )}
           </div>
-          <h2 className="mt-4 text-3xl font-black sm:text-4xl">{app.title}</h2>
-          <p className="mt-3 max-w-3xl text-lg leading-8 text-body">{app.description}</p>
+          <h2 className="mt-4 text-3xl font-black sm:text-4xl">
+            {app.title}
+            {projectTrophies.get(app.id) !== undefined && (
+              <TrophyMark place={projectTrophies.get(app.id) as 1 | 2 | 3} size={30} />
+            )}
+          </h2>
+          <p className="mt-3 max-w-3xl text-lg leading-8 text-body">
+            <MentionText
+              text={app.description}
+              profiles={[...profiles.values()]}
+              onOpenProfile={onOpenProfile}
+            />
+          </p>
 
           <div className="mt-5 flex flex-wrap items-center gap-4">
             <button
@@ -444,8 +615,15 @@ export default function ProjectView({
               />
               <span className="min-w-0">
                 <span className="block text-xs font-black uppercase text-purple">Built by</span>
-                <span className="block truncate text-lg font-black">{developer.name}</span>
-                <span className="block truncate text-sm font-bold text-muted">{developer.role}</span>
+                <span className="block truncate text-lg font-black">
+                  {developer.name}
+                  {trophies.get(developer.id) !== undefined && (
+                    <TrophyMark place={trophies.get(developer.id) as 1 | 2 | 3} size={22} />
+                  )}
+                </span>
+                <span className="block truncate text-sm font-bold text-muted">
+                  {developer.role}
+                </span>
               </span>
               <ArrowRight size={20} weight="bold" className="ml-auto shrink-0" />
             </button>
@@ -488,16 +666,24 @@ export default function ProjectView({
             </select>
           </label>
           <label className="sm:col-span-2">
-            <span className="toon-label">What does it do?</span>
-            <input
-              className="toon-input"
+            <span className="toon-label">What does it do? (type @ to mention developers)</span>
+            <MentionInput
               value={eDesc}
-              onChange={(e) => setEDesc(e.target.value)}
+              onChange={setEDesc}
+              profiles={[...profiles.values()]}
               required
               maxLength={280}
-              placeholder="One clear sentence"
+              placeholder="One clear sentence — @ a collaborator"
             />
           </label>
+          <div className="sm:col-span-2">
+            <span className="toon-label">Collaborators (optional)</span>
+            <CollaboratorPicker
+              profiles={[...profiles.values()]}
+              selected={eCollabIds}
+              onChange={setECollabIds}
+            />
+          </div>
           <label className="sm:col-span-2">
             <span className="toon-label">App link</span>
             <span className="relative block">
@@ -510,9 +696,38 @@ export default function ProjectView({
                 className="toon-input pl-12"
                 type="url"
                 value={eUrl}
-                onChange={(e) => setEUrl(e.target.value)}
+                onChange={(e) => {
+                  setEUrl(e.target.value);
+                  eResetRepositoryFiles();
+                }}
                 placeholder="https://project.example"
               />
+            </span>
+            <span className="mt-2 block text-xs text-body">
+              The live demo or project page behind the Open app button.
+            </span>
+          </label>
+          <label className="sm:col-span-2">
+            <span className="toon-label">GitHub project repo link (optional)</span>
+            <span className="relative block">
+              <LinkSimple
+                size={21}
+                weight="bold"
+                className="absolute left-4 top-1/2 -translate-y-1/2"
+              />
+              <input
+                className="toon-input pl-12"
+                type="url"
+                value={eRepoUrl}
+                onChange={(e) => {
+                  setERepoUrl(e.target.value);
+                  eResetRepositoryFiles();
+                }}
+                placeholder="https://github.com/you/project"
+              />
+            </span>
+            <span className="mt-2 block text-xs text-body">
+              Only used to import documentation. Never shown on the Open app button.
             </span>
           </label>
           <div className="sm:col-span-2">
@@ -566,22 +781,51 @@ export default function ProjectView({
           </div>
           <div className="sm:col-span-2">
             <span className="toon-label">Documentation (optional, markdown supported)</span>
-            <div className="mb-3 flex flex-wrap gap-2">
-              {(["write", "upload", "preview"] as const).map((tab) => (
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              {(["write", "upload", "repository"] as const).map((tab) => (
                 <button
                   key={tab}
                   type="button"
-                  onClick={() => setEDocsTab(tab)}
+                  onClick={() => {
+                    setEDocsPreviewReturnTab(tab);
+                    setEDocsTab(tab);
+                  }}
                   aria-pressed={eDocsTab === tab}
                   className={`rounded-md border-2 border-ink px-3 py-1.5 text-sm font-black capitalize ${eDocsTab === tab ? "bg-purple text-surface" : "bg-surface"}`}
                 >
-                  {tab === "upload" ? "Upload .md" : tab}
+                  {tab === "upload"
+                    ? "Upload .md"
+                    : tab === "repository"
+                      ? "GitHub repository"
+                      : tab}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => {
+                  if (eDocsTab === "preview") setEDocsTab(eDocsPreviewReturnTab);
+                  else {
+                    setEDocsPreviewReturnTab(eDocsTab);
+                    setEDocsTab("preview");
+                  }
+                }}
+                aria-pressed={eDocsTab === "preview"}
+                className="ml-auto inline-flex items-center gap-1 rounded-md border-2 border-ink bg-surface px-3 py-1.5 text-sm font-black hover:bg-cream focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow"
+              >
+                {eDocsTab === "preview" ? (
+                  <>
+                    <PencilSimple size={16} weight="bold" /> Edit
+                  </>
+                ) : (
+                  <>
+                    <Eye size={16} weight="bold" /> Preview
+                  </>
+                )}
+              </button>
             </div>
             {eDocsTab === "write" && (
-              <textarea
-                className="toon-input min-h-24"
+              <MarkdownTextarea
+                className="min-h-24"
                 value={eDocs}
                 onChange={(e) => {
                   setEDocs(e.target.value);
@@ -608,6 +852,7 @@ export default function ProjectView({
                         .then(({ name, text }) => {
                           setEDocs(text);
                           setEDocsFile(name);
+                          setEDocsPreviewReturnTab("upload");
                           setEDocsTab("preview");
                           setEError(null);
                         })
@@ -622,6 +867,95 @@ export default function ProjectView({
                     {eDocsFile} · {eDocs.length} chars
                   </p>
                 )}
+              </div>
+            )}
+            {eDocsTab === "repository" && (
+              <div className="rounded-xl border-2 border-ink bg-surface p-4">
+                {!isGitHubRepositoryUrl(eDocsRepoUrl) ? (
+                  <p role="status" className="text-sm font-bold text-body">
+                    Provide your GitHub project repo link first — paste it in the repo
+                    link field above, then come back here to choose Markdown files.
+                  </p>
+                ) : (
+                  <>
+                <p className="text-sm font-bold text-body">
+                  Choose Markdown files from the public GitHub repository in your repo
+                  link.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void eLoadRepositoryFiles()}
+                  disabled={eRepositoryFilesLoading || eRepositoryFilesImporting}
+                  className="toon-button mt-3 rounded-2xl bg-yellow text-sm"
+                >
+                  {eRepositoryFilesLoading
+                    ? "Loading repository files…"
+                    : "Load Markdown files"}
+                </button>
+                {eRepositoryFilesError && (
+                  <p role="alert" className="mt-3 text-sm font-bold text-ink">
+                    {eRepositoryFilesError}
+                  </p>
+                )}
+                {eRepositoryFiles.length > 0 && (
+                  <>
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-sm font-black">
+                        {eSelectedRepositoryFiles.length} of {eRepositoryFiles.length} selected
+                      </p>
+                      <label className="flex items-center gap-2 text-sm font-black">
+                        <input
+                          type="checkbox"
+                          checked={eSelectedRepositoryFiles.length === eRepositoryFiles.length}
+                          onChange={(event) =>
+                            setESelectedRepositoryFiles(
+                              event.target.checked ? eRepositoryFiles : [],
+                            )
+                          }
+                        />
+                        Select all
+                      </label>
+                    </div>
+                    <div className="mt-2 max-h-64 space-y-1 overflow-y-auto rounded-lg border-2 border-divider p-2">
+                      {eRepositoryFiles.map((path) => (
+                        <label
+                          key={path}
+                          className="flex items-start gap-2 rounded-md px-2 py-1.5 text-sm font-bold hover:bg-cream"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={eSelectedRepositoryFiles.includes(path)}
+                            onChange={(event) =>
+                              setESelectedRepositoryFiles((selected) =>
+                                event.target.checked
+                                  ? [...selected, path]
+                                  : selected.filter((item) => item !== path),
+                              )
+                            }
+                            className="mt-1 shrink-0"
+                          />
+                          <span className="break-all">{path}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void eImportRepositoryFiles()}
+                      disabled={!eSelectedRepositoryFiles.length || eRepositoryFilesImporting}
+                      className="toon-button mt-3 rounded-2xl bg-purple text-sm text-surface disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {eRepositoryFilesImporting
+                        ? "Importing selected files…"
+                        : `Use ${eSelectedRepositoryFiles.length} selected file${eSelectedRepositoryFiles.length === 1 ? "" : "s"}`}
+                    </button>
+                    <p className="mt-2 text-xs font-bold text-muted">
+                      Selected files are combined into project documentation (50,000-character
+                      limit).
+                    </p>
+                    </>
+                  )}
+                    </>
+                    )}
               </div>
             )}
             {eDocsTab === "preview" && (
@@ -674,8 +1008,8 @@ export default function ProjectView({
                 className="flex w-full flex-wrap items-center gap-3 rounded-2xl border-[3px] border-ink bg-surface p-4"
               >
                 <p className="w-full text-sm font-black">
-                  Delete “{app.title}” forever? Its screenshots, docs, and feedback go with it.
-                  This cannot be undone.
+                  Delete “{app.title}” forever? Its screenshots, docs, and feedback go with it. This
+                  cannot be undone.
                 </p>
                 <button
                   type="button"
@@ -770,7 +1104,43 @@ export default function ProjectView({
           document.body,
         )}
 
-      {app.docs && <DocsSection text={app.docs} />}
+      {app.docs?.trim() ? (
+        <DocsSection text={app.docs} />
+      ) : readmeLoading ? (
+        <section
+          aria-live="polite"
+          className="toon-card paper-note mt-8 rounded-lg p-6 pt-10 sm:p-8 sm:pt-12"
+        >
+          <div className="mb-3 flex items-center gap-2">
+            <BookOpen size={22} weight="duotone" />
+            <h3 className="text-2xl font-black">Loading repository README…</h3>
+          </div>
+          <p className="font-bold text-muted">Checking GitHub for README.md.</p>
+        </section>
+      ) : repositoryReadme ? (
+        <DocsSection text={repositoryReadme} source="README.md from GitHub" />
+      ) : readmeError ? (
+        <section
+          role="status"
+          className="toon-card paper-note mt-8 rounded-lg p-6 pt-10 sm:p-8 sm:pt-12"
+        >
+          <div className="mb-3 flex items-center gap-2">
+            <BookOpen size={22} weight="duotone" />
+            <h3 className="text-2xl font-black">Repository README unavailable</h3>
+          </div>
+          <p className="font-bold text-muted">{readmeError}</p>
+        </section>
+      ) : app.url && isGitHubRepositoryUrl(app.url) ? (
+        <section className="toon-card paper-note mt-8 rounded-lg p-6 pt-10 sm:p-8 sm:pt-12">
+          <div className="mb-3 flex items-center gap-2">
+            <BookOpen size={22} weight="duotone" />
+            <h3 className="text-2xl font-black">No repository README found</h3>
+          </div>
+          <p className="font-bold text-muted">
+            Add custom documentation or a README.md to this public GitHub repository.
+          </p>
+        </section>
+      ) : null}
 
       <section className="toon-card mt-8 rounded-lg bg-surface p-6 sm:p-8">
         <h3 className="text-2xl font-black">Feedback ({feedbackCount})</h3>
@@ -780,6 +1150,7 @@ export default function ProjectView({
             appTitle={app.title}
             currentUser={currentUser}
             profiles={profiles}
+            trophies={trophies}
             onOpenProfile={onOpenProfile}
             onCommentAdded={(_id, count) => {
               setFeedbackCount(count);
