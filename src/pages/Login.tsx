@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { ArrowLeft, ArrowRight, LockKey, Sparkle } from "@phosphor-icons/react";
 import { useAuth } from "../auth/AuthProvider";
+import { Button } from "../components/Button";
 import Brand from "../components/Brand";
+import Input from "../components/Input";
 
 export default function Login() {
   const { signin } = useAuth();
@@ -41,24 +43,22 @@ export default function Login() {
           <form onSubmit={submit} className="space-y-5">
             <label className="block">
               <span className="toon-label">Email address</span>
-              <input
+              <Input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 type="email"
                 autoComplete="email"
-                className="toon-input"
                 required
               />
             </label>
             <label className="block">
               <span className="toon-label">Password</span>
-              <input
+              <Input
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 type="password"
                 autoComplete="current-password"
                 placeholder="Enter your password"
-                className="toon-input"
                 required
               />
             </label>
@@ -70,9 +70,9 @@ export default function Login() {
                 {error}
               </p>
             )}
-            <button className="toon-button w-full rounded-2xl bg-purple text-surface">
+            <Button type="submit" fullWidth>
               Continue <ArrowRight size={20} weight="bold" />
-            </button>
+            </Button>
           </form>
           <div className="mt-7 rounded-2xl border-2 border-dashed border-ink bg-cream p-4 text-sm leading-6">
             <span className="font-black">Demo account:</span> student@example.com · Password123

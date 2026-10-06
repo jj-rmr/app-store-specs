@@ -6,6 +6,7 @@ import {
   Sparkle,
   UsersThree,
 } from "@phosphor-icons/react";
+import { ButtonLink } from "../components/Button";
 import Brand from "../components/Brand";
 
 export default function Home() {
@@ -39,12 +40,12 @@ export default function Home() {
             finding collaborators across the SPECS community.
           </p>
           <div className="mt-9 flex flex-wrap gap-5">
-            <a href="/signin" className="toon-button rounded-2xl bg-purple text-surface">
+            <ButtonLink href="/signin">
               Sign in to CodeCanvas <RocketLaunch size={21} weight="duotone" />
-            </a>
-            <a href="#discover" className="toon-button rounded-2xl bg-yellow">
+            </ButtonLink>
+            <ButtonLink href="#discover" variant="secondary">
               Explore projects <Binoculars size={21} weight="duotone" />
-            </a>
+            </ButtonLink>
           </div>
           <div className="mt-12 flex flex-wrap gap-x-8 gap-y-4 text-sm font-black">
             {["Student-built software", "Cross-campus collaboration", "Constructive feedback"].map(
