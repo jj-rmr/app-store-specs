@@ -24,6 +24,7 @@ import { useAuth } from "../auth/AuthProvider";
 import Brand from "../components/Brand";
 import AppCard from "../components/AppCard";
 import Avatar from "../components/Avatar";
+import MarkdownFileViewer from "../components/MarkdownFileViewer";
 import Markdown from "../components/Markdown";
 import ProfileView from "../components/ProfileView";
 import ProjectView from "../components/ProjectView";
@@ -49,7 +50,11 @@ const routeForView: Record<Exclude<StoreView, "profile" | "project">, string> = 
   community: "/community",
 };
 
-function parsePath(path: string): { view: StoreView; profileId: string | null; appId: string | null } {
+function parsePath(path: string): {
+  view: StoreView;
+  profileId: string | null;
+  appId: string | null;
+} {
   const clean = path.replace(/\/$/, "") || "/store";
   if (clean === "/profile") return { view: "profile", profileId: "__me__", appId: null };
   if (clean === "/builders" || clean === "/developers")
@@ -202,7 +207,10 @@ export default function Store() {
     window.history.replaceState({}, "", "/");
     await signout();
   };
-  const goTab = (event: React.MouseEvent<HTMLAnchorElement>, nextView: Exclude<StoreView, "profile" | "project">) => {
+  const goTab = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    nextView: Exclude<StoreView, "profile" | "project">,
+  ) => {
     event.preventDefault();
     window.history.pushState({}, "", routeForView[nextView]);
     setView(nextView);
@@ -266,8 +274,16 @@ export default function Store() {
     fullApps.find((a) => a.id === selectedAppId) ?? apps.find((a) => a.id === selectedAppId);
   const crumbs: Crumb[] = (() => {
     if (view === "discover") return [{ label: "store", current: true }];
-    if (view === "builders") return [{ label: "store", go: () => goPath("/store", "discover") }, { label: "builders", current: true }];
-    if (view === "community") return [{ label: "store", go: () => goPath("/store", "discover") }, { label: "community", current: true }];
+    if (view === "builders")
+      return [
+        { label: "store", go: () => goPath("/store", "discover") },
+        { label: "builders", current: true },
+      ];
+    if (view === "community")
+      return [
+        { label: "store", go: () => goPath("/store", "discover") },
+        { label: "community", current: true },
+      ];
     if (view === "profile")
       return [
         { label: "store", go: () => goPath("/store", "discover") },
@@ -403,11 +419,19 @@ export default function Store() {
           className="fixed inset-x-0 bottom-0 z-50 grid h-[72px] grid-cols-3 gap-2 border-t-2 border-ink bg-purple p-2 lg:static lg:mt-12 lg:block lg:h-auto lg:space-y-2 lg:border-0 lg:bg-transparent lg:p-0 lg:pr-1"
           aria-label="Main navigation"
         >
-          <a href="/store" onClick={(event) => goTab(event, "discover")} className={navClass("discover")}>
+          <a
+            href="/store"
+            onClick={(event) => goTab(event, "discover")}
+            className={navClass("discover")}
+          >
             <MagnifyingGlass size={21} weight="duotone" />
             Discover
           </a>
-          <a href="/builders" onClick={(event) => goTab(event, "builders")} className={navClass("builders")}>
+          <a
+            href="/builders"
+            onClick={(event) => goTab(event, "builders")}
+            className={navClass("builders")}
+          >
             <UsersThree size={22} weight="duotone" />
             Developers
           </a>
@@ -599,7 +623,11 @@ export default function Store() {
                 <span className="toon-label">Thumbnails (up to 3, first is the cover)</span>
                 <label className="toon-button cursor-pointer rounded-2xl bg-surface text-sm">
                   <Images size={20} weight="duotone" />
-                  {imageBusy ? "Processing…" : screenshots.length ? "Add more" : "Choose from gallery"}
+                  {imageBusy
+                    ? "Processing…"
+                    : screenshots.length
+                      ? "Add more"
+                      : "Choose from gallery"}
                   <input
                     type="file"
                     accept="image/*"
@@ -644,12 +672,22 @@ export default function Store() {
                   </div>
                 )}
                 <span className="mt-2 block text-xs text-body">
-                  Any photo from your gallery (iPhone HEIC not yet supported), compressed
-                  on-device. First image becomes the card cover.
+                  Any photo from your gallery (iPhone HEIC not yet supported), compressed on-device.
+                  First image becomes the card cover.
                 </span>
               </div>
               <div className="sm:col-span-2">
-                <span className="toon-label">Documentation (optional, markdown supported)</span>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="toon-label">Documentation (optional, markdown supported)</span>
+                  <MarkdownFileViewer
+                    initialDocument={
+                      docs.trim()
+                        ? { name: docsFile ?? "Custom documentation", text: docs }
+                        : undefined
+                    }
+                    buttonLabel={docs.trim() ? "Preview documentation" : "Open a Markdown file"}
+                  />
+                </div>
                 <div className="mb-3 flex flex-wrap gap-2">
                   {(["write", "upload", "preview"] as const).map((tab) => (
                     <button

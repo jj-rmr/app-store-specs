@@ -6,6 +6,7 @@ import {
   BookOpen,
   BookOpenText,
   ChatCircleDots,
+  DownloadSimple,
   Heart,
   Images,
   LinkSimple,
@@ -20,6 +21,7 @@ import { getAppRepo, getProfileRepo } from "../data/factory";
 import { profileIdForApp } from "../data/profileLinks";
 import { fileToThumbnailDataUrl } from "../utils/images";
 import { readMarkdownFile } from "../utils/readMarkdownFile";
+import { isGitHubRepositoryUrl, readGitHubReadme } from "../utils/readGitHubReadme";
 import type { AppItem, Category, Profile, User } from "../data/types";
 
 type ProjectViewProps = {
@@ -35,7 +37,7 @@ type ProjectViewProps = {
 
 const DOCS_PREVIEW_LIMIT = 1000;
 
-function DocsSection({ text }: { text: string }) {
+function DocsSection({ text, source }: { text: string; source?: string }) {
   const COLLAPSED_PX = 320;
   const STEP_PX = 600;
   const long = text.length > DOCS_PREVIEW_LIMIT;
@@ -82,12 +84,31 @@ function DocsSection({ text }: { text: string }) {
     setHeight(null);
   };
   const collapse = () => setHeight(COLLAPSED_PX);
+  const download = () => {
+    const blobUrl = URL.createObjectURL(new Blob([text], { type: "text/markdown;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = source === "README.md from GitHub" ? "README.md" : "documentation.md";
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  };
 
   return (
     <section className="toon-card paper-note mt-8 rounded-lg p-6 pt-10 sm:p-8 sm:pt-12">
       <div className="mb-3 flex items-center gap-2">
         <BookOpen size={22} weight="duotone" />
         <h3 className="text-2xl font-black">Documentation</h3>
+      </div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        {source && <p className="text-xs font-black uppercase text-muted">{source}</p>}
+        <button
+          type="button"
+          onClick={download}
+          className="toon-button rounded-2xl bg-surface text-sm"
+        >
+          <DownloadSimple size={19} weight="bold" />
+          Download documentation
+        </button>
       </div>
       <div
         ref={contentRef}
@@ -178,6 +199,9 @@ export default function ProjectView({
   const [feedbackCount, setFeedbackCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [repositoryReadme, setRepositoryReadme] = useState<string | null>(null);
+  const [readmeLoading, setReadmeLoading] = useState(false);
+  const [readmeError, setReadmeError] = useState<string | null>(null);
   const [editing, setEditing] = useState(startEditing);
   const [eTitle, setETitle] = useState("");
   const [eDesc, setEDesc] = useState("");
@@ -228,6 +252,33 @@ export default function ProjectView({
       cancelled = true;
     };
   }, [appId, currentUser?.id, profiles]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setRepositoryReadme(null);
+    setReadmeError(null);
+
+    if (!app?.url || app.docs?.trim() || !isGitHubRepositoryUrl(app.url)) {
+      setReadmeLoading(false);
+      return () => controller.abort();
+    }
+
+    setReadmeLoading(true);
+    void readGitHubReadme(app.url, controller.signal)
+      .then(setRepositoryReadme)
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted) {
+          setReadmeError(
+            cause instanceof Error ? cause.message : "Could not load the repository README.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setReadmeLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [app?.docs, app?.url]);
 
   useEffect(() => {
     if (!lightbox) return;
@@ -314,18 +365,14 @@ export default function ProjectView({
     setESaving(true);
     setEError(null);
     try {
-      const updated = await getAppRepo().updateApp(
-        app.id,
-        currentUser,
-        {
-          title: eTitle,
-          description: eDesc,
-          url: eUrl,
-          category: eCategory,
-          screenshots: eShots,
-          docs: eDocs,
-        },
-        );
+      const updated = await getAppRepo().updateApp(app.id, currentUser, {
+        title: eTitle,
+        description: eDesc,
+        url: eUrl,
+        category: eCategory,
+        screenshots: eShots,
+        docs: eDocs,
+      });
       setApp(updated);
       setEditing(false);
       onChanged();
@@ -354,10 +401,7 @@ export default function ProjectView({
 
   return (
     <div>
-      <button
-        onClick={onBack}
-        className="toon-button rounded-2xl bg-surface px-4 py-2 text-sm"
-      >
+      <button onClick={onBack} className="toon-button rounded-2xl bg-surface px-4 py-2 text-sm">
         <ArrowLeft size={18} weight="bold" /> Back to projects
       </button>
 
@@ -445,7 +489,9 @@ export default function ProjectView({
               <span className="min-w-0">
                 <span className="block text-xs font-black uppercase text-purple">Built by</span>
                 <span className="block truncate text-lg font-black">{developer.name}</span>
-                <span className="block truncate text-sm font-bold text-muted">{developer.role}</span>
+                <span className="block truncate text-sm font-bold text-muted">
+                  {developer.role}
+                </span>
               </span>
               <ArrowRight size={20} weight="bold" className="ml-auto shrink-0" />
             </button>
@@ -674,8 +720,8 @@ export default function ProjectView({
                 className="flex w-full flex-wrap items-center gap-3 rounded-2xl border-[3px] border-ink bg-surface p-4"
               >
                 <p className="w-full text-sm font-black">
-                  Delete “{app.title}” forever? Its screenshots, docs, and feedback go with it.
-                  This cannot be undone.
+                  Delete “{app.title}” forever? Its screenshots, docs, and feedback go with it. This
+                  cannot be undone.
                 </p>
                 <button
                   type="button"
@@ -770,7 +816,43 @@ export default function ProjectView({
           document.body,
         )}
 
-      {app.docs && <DocsSection text={app.docs} />}
+      {app.docs?.trim() ? (
+        <DocsSection text={app.docs} />
+      ) : readmeLoading ? (
+        <section
+          aria-live="polite"
+          className="toon-card paper-note mt-8 rounded-lg p-6 pt-10 sm:p-8 sm:pt-12"
+        >
+          <div className="mb-3 flex items-center gap-2">
+            <BookOpen size={22} weight="duotone" />
+            <h3 className="text-2xl font-black">Loading repository README…</h3>
+          </div>
+          <p className="font-bold text-muted">Checking GitHub for README.md.</p>
+        </section>
+      ) : repositoryReadme ? (
+        <DocsSection text={repositoryReadme} source="README.md from GitHub" />
+      ) : readmeError ? (
+        <section
+          role="status"
+          className="toon-card paper-note mt-8 rounded-lg p-6 pt-10 sm:p-8 sm:pt-12"
+        >
+          <div className="mb-3 flex items-center gap-2">
+            <BookOpen size={22} weight="duotone" />
+            <h3 className="text-2xl font-black">Repository README unavailable</h3>
+          </div>
+          <p className="font-bold text-muted">{readmeError}</p>
+        </section>
+      ) : app.url && isGitHubRepositoryUrl(app.url) ? (
+        <section className="toon-card paper-note mt-8 rounded-lg p-6 pt-10 sm:p-8 sm:pt-12">
+          <div className="mb-3 flex items-center gap-2">
+            <BookOpen size={22} weight="duotone" />
+            <h3 className="text-2xl font-black">No repository README found</h3>
+          </div>
+          <p className="font-bold text-muted">
+            Add custom documentation or a README.md to this public GitHub repository.
+          </p>
+        </section>
+      ) : null}
 
       <section className="toon-card mt-8 rounded-lg bg-surface p-6 sm:p-8">
         <h3 className="text-2xl font-black">Feedback ({feedbackCount})</h3>
