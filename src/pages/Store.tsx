@@ -865,30 +865,32 @@ export default function Store() {
               <div className="toon-card paper-note grid gap-x-6 gap-y-8 rounded-lg p-6 pt-10 sm:grid-cols-2 sm:p-8 sm:pt-12 lg:grid-cols-3">
                 {profiles.map((p) => (
                   <article key={p.id} className="min-w-0">
-                    <a
-                      href={`/builders/${encodeURIComponent(p.id)}`}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        openProfile(p.id);
-                      }}
-                      aria-label={`View ${p.name}'s profile`}
-                      className="inline-block"
-                    >
-                      <Avatar name={p.name} color={p.color} imageUrl={p.imageUrl} size="md" />
-                    </a>
-                    <h3 className="mt-4 text-lg font-black">
+                    <div className="flex items-center gap-3">
                       <a
                         href={`/builders/${encodeURIComponent(p.id)}`}
                         onClick={(e) => {
                           e.preventDefault();
                           openProfile(p.id);
                         }}
-                        className="underline-offset-4 hover:underline"
+                        aria-label={`View ${p.name}'s profile`}
+                        className="shrink-0"
                       >
-                        {p.name}
+                        <Avatar name={p.name} color={p.color} imageUrl={p.imageUrl} size="md" />
                       </a>
-                    </h3>
-                    <p className="text-sm text-muted">{p.role}</p>
+                      <h3 className="min-w-0 flex-1 break-words text-lg font-black">
+                        <a
+                          href={`/builders/${encodeURIComponent(p.id)}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            openProfile(p.id);
+                          }}
+                          className="underline-offset-4 hover:underline"
+                        >
+                          {p.name}
+                        </a>
+                      </h3>
+                    </div>
+                    <p className="mt-2 text-sm text-muted">{p.role}</p>
                     <p className="mt-3 text-xs font-black uppercase">
                       {countFor(p)} project{countFor(p) === 1 ? "" : "s"} shared
                     </p>
