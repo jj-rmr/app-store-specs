@@ -4,12 +4,14 @@ import {
   BookOpenText,
   ChatCircleDots,
   DownloadSimple,
+  Eye,
   GameController,
   GraduationCap,
   Images,
   LinkSimple,
   MagnifyingGlass,
   Palette,
+  PencilSimple,
   Plus,
   RocketLaunch,
   SignOut,
@@ -26,6 +28,7 @@ import Brand from "../components/Brand";
 import AppCard from "../components/AppCard";
 import Avatar from "../components/Avatar";
 import MarkdownFileViewer from "../components/MarkdownFileViewer";
+import MarkdownTextarea from "../components/MarkdownTextarea";
 import Markdown from "../components/Markdown";
 import ProfileView from "../components/ProfileView";
 import ProjectView from "../components/ProjectView";
@@ -129,6 +132,9 @@ export default function Store() {
   const [screenshots, setScreenshots] = useState<string[]>([]);
   const [docs, setDocs] = useState("");
   const [docsTab, setDocsTab] = useState<"write" | "upload" | "repository" | "preview">("write");
+  const [docsPreviewReturnTab, setDocsPreviewReturnTab] = useState<
+    "write" | "upload" | "repository"
+  >("write");
   const [docsFile, setDocsFile] = useState<string | null>(null);
   const [repositoryFiles, setRepositoryFiles] = useState<string[]>([]);
   const [selectedRepositoryFiles, setSelectedRepositoryFiles] = useState<string[]>([]);
@@ -378,6 +384,7 @@ export default function Store() {
     setImgError(null);
     setDocs("");
     setDocsTab("write");
+    setDocsPreviewReturnTab("write");
     setDocsFile(null);
     setRepositoryFiles([]);
     setSelectedRepositoryFiles([]);
@@ -407,6 +414,7 @@ export default function Store() {
       const { name, text } = await readMarkdownFile(file);
       setDocs(text);
       setDocsFile(name);
+      setDocsPreviewReturnTab("upload");
       setDocsTab("preview");
       setSubmitError(null);
     } catch (e) {
@@ -458,6 +466,7 @@ export default function Store() {
       const combined = files.map(({ path, text }) => `# ${path}\n\n${text}`).join("\n\n---\n\n");
       setDocs(combined);
       setDocsFile(files.length === 1 ? files[0].path : `${files.length} repository Markdown files`);
+      setDocsPreviewReturnTab("repository");
       setDocsTab("preview");
       setSubmitError(null);
     } catch (cause) {
@@ -495,7 +504,7 @@ export default function Store() {
                   color={myProfile.color}
                   imageUrl={myProfile.imageUrl}
                   size="sm"
-                  className="!border-surface"
+                  className="border-surface!"
                 />
               </button>
             )}
@@ -509,7 +518,7 @@ export default function Store() {
           </div>
         </div>
         <nav
-          className="fixed inset-x-0 bottom-0 z-50 grid h-[72px] grid-cols-3 gap-2 border-t-2 border-ink bg-purple p-2 lg:static lg:mt-12 lg:block lg:h-auto lg:space-y-2 lg:border-0 lg:bg-transparent lg:p-0 lg:pr-1"
+          className="fixed inset-x-0 bottom-0 z-50 grid h-18 grid-cols-3 gap-2 border-t-2 border-ink bg-purple p-2 lg:static lg:mt-12 lg:block lg:h-auto lg:space-y-2 lg:border-0 lg:bg-transparent lg:p-0 lg:pr-1"
           aria-label="Main navigation"
         >
           <a
@@ -576,10 +585,10 @@ export default function Store() {
         </div>
       </aside>
 
-      <div className="min-w-0 px-5 pb-[92px] pt-[105px] sm:px-8 sm:pb-[100px] sm:pt-[117px] lg:ml-[280px] lg:p-10">
+      <div className="min-w-0 px-5 pb-23 pt-26.25 sm:px-8 sm:pb-25 sm:pt-29.25 lg:ml-70 lg:p-10">
         <nav
           aria-label="Breadcrumb"
-          className="sticky top-[93px] z-30 mx-auto mb-5 max-w-6xl overflow-x-auto rounded-xl border-[3px] border-ink bg-surface/80 px-3 py-2 font-mono text-sm shadow-[3px_3px_0_var(--color-ink)] backdrop-blur-md lg:top-4"
+          className="sticky top-23.25 z-30 mx-auto mb-5 max-w-6xl overflow-x-auto rounded-xl border-[3px] border-ink bg-surface/80 px-3 py-2 font-mono text-sm shadow-[3px_3px_0_var(--color-ink)] backdrop-blur-md lg:top-4"
         >
           <ol className="flex min-w-max items-center gap-1">
             {crumbs.map((c, i) => (
@@ -593,7 +602,7 @@ export default function Store() {
                   <span
                     aria-current={c.current ? "page" : undefined}
                     title={c.label}
-                    className={`max-w-[180px] truncate px-1.5 py-0.5 font-black ${c.current ? "rounded-md border-2 border-ink bg-yellow" : ""}`}
+                    className={`max-w-45 truncate px-1.5 py-0.5 font-black ${c.current ? "rounded-md border-2 border-ink bg-yellow" : ""}`}
                   >
                     {c.label}
                   </span>
@@ -710,6 +719,7 @@ export default function Store() {
                       setRepositoryFilesLoading(false);
                       setRepositoryFilesImporting(false);
                       setRepositoryFilesError(null);
+                      if (!isGitHubRepositoryUrl(event.target.value)) setDocsTab("write");
                     }}
                     required
                     placeholder="https://project.example"
@@ -778,23 +788,18 @@ export default function Store() {
                 </span>
               </div>
               <div className="sm:col-span-2">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <span className="toon-label">Documentation (optional, markdown supported)</span>
-                  <MarkdownFileViewer
-                    initialDocument={
-                      docs.trim()
-                        ? { name: docsFile ?? "Custom documentation", text: docs }
-                        : undefined
-                    }
-                    buttonLabel={docs.trim() ? "Preview documentation" : "Open a Markdown file"}
-                  />
-                </div>
-                <div className="mb-3 flex flex-wrap gap-2">
-                  {(["write", "upload", "repository", "preview"] as const).map((tab) => (
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  {(isGitHubRepositoryUrl(url)
+                    ? (["write", "upload", "repository"] as const)
+                    : (["write", "upload"] as const)
+                  ).map((tab) => (
                     <button
                       key={tab}
                       type="button"
-                      onClick={() => setDocsTab(tab)}
+                      onClick={() => {
+                        setDocsPreviewReturnTab(tab);
+                        setDocsTab(tab);
+                      }}
                       aria-pressed={docsTab === tab}
                       className={`rounded-md border-2 border-ink px-3 py-1.5 text-sm font-black capitalize ${docsTab === tab ? "bg-purple text-surface" : "bg-surface"}`}
                     >
@@ -805,10 +810,32 @@ export default function Store() {
                           : tab}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (docsTab === "preview") setDocsTab(docsPreviewReturnTab);
+                      else {
+                        setDocsPreviewReturnTab(docsTab);
+                        setDocsTab("preview");
+                      }
+                    }}
+                    aria-pressed={docsTab === "preview"}
+                    className="ml-auto inline-flex items-center gap-1 rounded-md border-2 border-ink bg-surface px-3 py-1.5 text-sm font-black hover:bg-cream focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow"
+                  >
+                    {docsTab === "preview" ? (
+                      <>
+                        <PencilSimple size={16} weight="bold" /> Edit
+                      </>
+                    ) : (
+                      <>
+                        <Eye size={16} weight="bold" /> Preview
+                      </>
+                    )}
+                  </button>
                 </div>
                 {docsTab === "write" && (
-                  <textarea
-                    className="toon-input min-h-24"
+                  <MarkdownTextarea
+                    className="min-h-24"
                     value={docs}
                     onChange={(event) => {
                       setDocs(event.target.value);
@@ -853,7 +880,7 @@ export default function Store() {
                     )}
                   </div>
                 )}
-                {docsTab === "repository" && (
+                {docsTab === "repository" && isGitHubRepositoryUrl(url) && (
                   <div className="rounded-xl border-2 border-ink bg-surface p-4">
                     <p className="text-sm font-bold text-body">
                       Choose Markdown files from the public GitHub repository in your project link.

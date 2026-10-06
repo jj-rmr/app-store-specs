@@ -6,6 +6,7 @@ import {
   BookOpen,
   BookOpenText,
   ChatCircleDots,
+  Eye,
   DownloadSimple,
   Heart,
   Images,
@@ -17,6 +18,7 @@ import {
 import Avatar from "./Avatar";
 import Comments from "./Comments";
 import Markdown from "./Markdown";
+import MarkdownTextarea from "./MarkdownTextarea";
 import { getAppRepo, getProfileRepo } from "../data/factory";
 import { profileIdForApp } from "../data/profileLinks";
 import { fileToThumbnailDataUrl } from "../utils/images";
@@ -210,6 +212,7 @@ export default function ProjectView({
   const [eShots, setEShots] = useState<string[]>([]);
   const [eDocs, setEDocs] = useState("");
   const [eDocsTab, setEDocsTab] = useState<"write" | "upload" | "preview">("write");
+  const [eDocsPreviewReturnTab, setEDocsPreviewReturnTab] = useState<"write" | "upload">("write");
   const [eDocsFile, setEDocsFile] = useState<string | null>(null);
   const [eBusy, setEBusy] = useState(false);
   const [eImgError, setEImgError] = useState<string | null>(null);
@@ -323,6 +326,7 @@ export default function ProjectView({
     setEShots(app.screenshots ?? []);
     setEDocs(app.docs ?? "");
     setEDocsTab("write");
+    setEDocsPreviewReturnTab("write");
     setEDocsFile(null);
     setEError(null);
     setConfirmDelete(false);
@@ -612,22 +616,47 @@ export default function ProjectView({
           </div>
           <div className="sm:col-span-2">
             <span className="toon-label">Documentation (optional, markdown supported)</span>
-            <div className="mb-3 flex flex-wrap gap-2">
-              {(["write", "upload", "preview"] as const).map((tab) => (
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              {(["write", "upload"] as const).map((tab) => (
                 <button
                   key={tab}
                   type="button"
-                  onClick={() => setEDocsTab(tab)}
+                  onClick={() => {
+                    setEDocsPreviewReturnTab(tab);
+                    setEDocsTab(tab);
+                  }}
                   aria-pressed={eDocsTab === tab}
                   className={`rounded-md border-2 border-ink px-3 py-1.5 text-sm font-black capitalize ${eDocsTab === tab ? "bg-purple text-surface" : "bg-surface"}`}
                 >
                   {tab === "upload" ? "Upload .md" : tab}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => {
+                  if (eDocsTab === "preview") setEDocsTab(eDocsPreviewReturnTab);
+                  else {
+                    setEDocsPreviewReturnTab(eDocsTab);
+                    setEDocsTab("preview");
+                  }
+                }}
+                aria-pressed={eDocsTab === "preview"}
+                className="ml-auto inline-flex items-center gap-1 rounded-md border-2 border-ink bg-surface px-3 py-1.5 text-sm font-black hover:bg-cream focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow"
+              >
+                {eDocsTab === "preview" ? (
+                  <>
+                    <PencilSimple size={16} weight="bold" /> Edit
+                  </>
+                ) : (
+                  <>
+                    <Eye size={16} weight="bold" /> Preview
+                  </>
+                )}
+              </button>
             </div>
             {eDocsTab === "write" && (
-              <textarea
-                className="toon-input min-h-24"
+              <MarkdownTextarea
+                className="min-h-24"
                 value={eDocs}
                 onChange={(e) => {
                   setEDocs(e.target.value);
@@ -654,6 +683,7 @@ export default function ProjectView({
                         .then(({ name, text }) => {
                           setEDocs(text);
                           setEDocsFile(name);
+                          setEDocsPreviewReturnTab("upload");
                           setEDocsTab("preview");
                           setEError(null);
                         })

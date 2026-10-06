@@ -287,6 +287,26 @@ nav {
   border-color: var(--color-purple);
 }
 
+.markdown-textarea {
+  max-height: min(60vh, 32rem);
+  scrollbar-color: var(--color-yellow) transparent;
+  scrollbar-width: thin;
+}
+
+.markdown-textarea::-webkit-scrollbar {
+  width: 10px;
+}
+
+.markdown-textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.markdown-textarea::-webkit-scrollbar-thumb {
+  background: var(--color-yellow);
+  border: 2px solid var(--color-surface);
+  border-radius: 999px;
+}
+
 @utility toon-label {
   @apply mb-2 block text-xs font-black uppercase;
 }
