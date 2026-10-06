@@ -128,6 +128,7 @@ body::before {
 h1,
 h2,
 h3,
+.toon-button,
 .toon-button-control,
 nav {
   font-family: var(--font-sans);
@@ -178,6 +179,22 @@ nav {
   @apply border-2 bg-surface;
   border-color: var(--color-ink);
   box-shadow: 4px 4px 0 var(--color-ink-shadow);
+}
+
+@utility toon-button {
+  @apply inline-flex items-center justify-center gap-2 border-[3px] px-5 py-3 font-black transition-[transform,box-shadow] duration-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow focus-visible:ring-offset-2;
+  border-color: var(--color-ink);
+  box-shadow: 0 6px 0 var(--color-ink);
+}
+
+.toon-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 0 var(--color-ink);
+}
+
+.toon-button:active {
+  transform: translateY(6px);
+  box-shadow: 0 0 0 var(--color-ink);
 }
 
 @utility toon-button-shell {
