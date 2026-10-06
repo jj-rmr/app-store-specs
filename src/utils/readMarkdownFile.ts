@@ -1,7 +1,12 @@
-export function validateMarkdownText(name: string, text: string): { name: string; text: string } {
+export function validateMarkdownText(
+  name: string,
+  text: string,
+  maxCharacters = 50000,
+): { name: string; text: string } {
   if (!text.trim()) throw new Error("That file is empty. Pick a file with content.");
-  if (text.length > 50000)
-    throw new Error("That file is too long. Keep it under 50000 characters.");
+  if (text.length > maxCharacters) {
+    throw new Error(`That file is too long. Keep it under ${maxCharacters} characters.`);
+  }
   // file.text() decodes as UTF-8, replacing invalid bytes with U+FFFD,
   // so binary files (zip, exe, pdf) show up as replacement chars / control codes.
   const sample = text.slice(0, 4000);

@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   BookOpenText,
   ChatCircleDots,
+  DownloadSimple,
   GameController,
   GraduationCap,
   Images,
@@ -32,6 +33,11 @@ import { getAppRepo, getProfileRepo } from "../data/factory";
 import { indexProfiles } from "../data/profileLinks";
 import { fileToThumbnailDataUrl } from "../utils/images";
 import { readMarkdownFile } from "../utils/readMarkdownFile";
+import {
+  isGitHubRepositoryUrl,
+  listGitHubMarkdownFiles,
+  readGitHubMarkdownFiles,
+} from "../utils/readGitHubReadme";
 import type { Activity, AppItem, Category, CategoryFilter, Profile } from "../data/types";
 
 const categories: { label: CategoryFilter; Icon: typeof SquaresFour }[] = [
@@ -122,8 +128,14 @@ export default function Store() {
   const [categoryInput, setCategoryInput] = useState<Category>("Productivity");
   const [screenshots, setScreenshots] = useState<string[]>([]);
   const [docs, setDocs] = useState("");
-  const [docsTab, setDocsTab] = useState<"write" | "upload" | "preview">("write");
+  const [docsTab, setDocsTab] = useState<"write" | "upload" | "repository" | "preview">("write");
   const [docsFile, setDocsFile] = useState<string | null>(null);
+  const [repositoryFiles, setRepositoryFiles] = useState<string[]>([]);
+  const [selectedRepositoryFiles, setSelectedRepositoryFiles] = useState<string[]>([]);
+  const [repositoryFilesLoading, setRepositoryFilesLoading] = useState(false);
+  const [repositoryFilesImporting, setRepositoryFilesImporting] = useState(false);
+  const [repositoryFilesError, setRepositoryFilesError] = useState<string | null>(null);
+  const repositoryRequest = useRef<AbortController | null>(null);
   const [imgError, setImgError] = useState<string | null>(null);
   const [imageBusy, setImageBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -322,6 +334,12 @@ export default function Store() {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!user || !title.trim() || !desc.trim() || submitting || imageBusy) return;
+    if (docs.trim().length > 50000) {
+      setSubmitError(
+        "This documentation exceeds the 50,000-character project limit. Download it or shorten it before publishing.",
+      );
+      return;
+    }
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -350,6 +368,8 @@ export default function Store() {
   };
 
   const resetForm = () => {
+    repositoryRequest.current?.abort();
+    repositoryRequest.current = null;
     setTitle("");
     setDesc("");
     setUrl("");
@@ -359,6 +379,11 @@ export default function Store() {
     setDocs("");
     setDocsTab("write");
     setDocsFile(null);
+    setRepositoryFiles([]);
+    setSelectedRepositoryFiles([]);
+    setRepositoryFilesLoading(false);
+    setRepositoryFilesImporting(false);
+    setRepositoryFilesError(null);
   };
   const pickImages = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -387,6 +412,74 @@ export default function Store() {
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : "Could not read that file.");
     }
+  };
+
+  const loadRepositoryFiles = async () => {
+    if (!isGitHubRepositoryUrl(url)) {
+      setRepositoryFilesError("Enter a public GitHub repository URL above first.");
+      return;
+    }
+
+    repositoryRequest.current?.abort();
+    const controller = new AbortController();
+    repositoryRequest.current = controller;
+    setRepositoryFilesLoading(true);
+    setRepositoryFilesError(null);
+    setRepositoryFiles([]);
+    setSelectedRepositoryFiles([]);
+    try {
+      const paths = await listGitHubMarkdownFiles(url, controller.signal);
+      setRepositoryFiles(paths);
+      const readme = paths.find((path) => /^readme\.md$/i.test(path));
+      if (readme) setSelectedRepositoryFiles([readme]);
+      if (!paths.length)
+        setRepositoryFilesError("No Markdown files were found in this repository.");
+    } catch (cause) {
+      if (!controller.signal.aborted) {
+        setRepositoryFilesError(
+          cause instanceof Error ? cause.message : "Could not list repository Markdown files.",
+        );
+      }
+    } finally {
+      if (!controller.signal.aborted) setRepositoryFilesLoading(false);
+    }
+  };
+
+  const importRepositoryFiles = async () => {
+    if (!selectedRepositoryFiles.length || repositoryFilesImporting) return;
+
+    repositoryRequest.current?.abort();
+    const controller = new AbortController();
+    repositoryRequest.current = controller;
+    setRepositoryFilesImporting(true);
+    setRepositoryFilesError(null);
+    try {
+      const files = await readGitHubMarkdownFiles(url, selectedRepositoryFiles, controller.signal);
+      const combined = files.map(({ path, text }) => `# ${path}\n\n${text}`).join("\n\n---\n\n");
+      setDocs(combined);
+      setDocsFile(files.length === 1 ? files[0].path : `${files.length} repository Markdown files`);
+      setDocsTab("preview");
+      setSubmitError(null);
+    } catch (cause) {
+      if (!controller.signal.aborted) {
+        setRepositoryFilesError(
+          cause instanceof Error ? cause.message : "Could not import repository Markdown files.",
+        );
+      }
+    } finally {
+      if (!controller.signal.aborted) setRepositoryFilesImporting(false);
+    }
+  };
+
+  const downloadDocumentation = () => {
+    const objectUrl = URL.createObjectURL(
+      new Blob([docs], { type: "text/markdown;charset=utf-8" }),
+    );
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = "documentation.md";
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
   };
 
   return (
@@ -609,7 +702,15 @@ export default function Store() {
                     className="toon-input pl-12"
                     type="url"
                     value={url}
-                    onChange={(event) => setUrl(event.target.value)}
+                    onChange={(event) => {
+                      setUrl(event.target.value);
+                      repositoryRequest.current?.abort();
+                      setRepositoryFiles([]);
+                      setSelectedRepositoryFiles([]);
+                      setRepositoryFilesLoading(false);
+                      setRepositoryFilesImporting(false);
+                      setRepositoryFilesError(null);
+                    }}
                     required
                     placeholder="https://project.example"
                     aria-describedby="app-link-help"
@@ -689,7 +790,7 @@ export default function Store() {
                   />
                 </div>
                 <div className="mb-3 flex flex-wrap gap-2">
-                  {(["write", "upload", "preview"] as const).map((tab) => (
+                  {(["write", "upload", "repository", "preview"] as const).map((tab) => (
                     <button
                       key={tab}
                       type="button"
@@ -697,7 +798,11 @@ export default function Store() {
                       aria-pressed={docsTab === tab}
                       className={`rounded-md border-2 border-ink px-3 py-1.5 text-sm font-black capitalize ${docsTab === tab ? "bg-purple text-surface" : "bg-surface"}`}
                     >
-                      {tab === "upload" ? "Upload .md" : tab}
+                      {tab === "upload"
+                        ? "Upload .md"
+                        : tab === "repository"
+                          ? "GitHub repository"
+                          : tab}
                     </button>
                   ))}
                 </div>
@@ -748,12 +853,108 @@ export default function Store() {
                     )}
                   </div>
                 )}
+                {docsTab === "repository" && (
+                  <div className="rounded-xl border-2 border-ink bg-surface p-4">
+                    <p className="text-sm font-bold text-body">
+                      Choose Markdown files from the public GitHub repository in your project link.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void loadRepositoryFiles()}
+                      disabled={repositoryFilesLoading || repositoryFilesImporting}
+                      className="toon-button mt-3 rounded-2xl bg-yellow text-sm"
+                    >
+                      {repositoryFilesLoading ? "Loading repository files…" : "Load Markdown files"}
+                    </button>
+                    {repositoryFilesError && (
+                      <p role="alert" className="mt-3 text-sm font-bold text-ink">
+                        {repositoryFilesError}
+                      </p>
+                    )}
+                    {repositoryFiles.length > 0 && (
+                      <>
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                          <p className="text-sm font-black">
+                            {selectedRepositoryFiles.length} of {repositoryFiles.length} selected
+                          </p>
+                          <label className="flex items-center gap-2 text-sm font-black">
+                            <input
+                              type="checkbox"
+                              checked={selectedRepositoryFiles.length === repositoryFiles.length}
+                              onChange={(event) =>
+                                setSelectedRepositoryFiles(
+                                  event.target.checked ? repositoryFiles : [],
+                                )
+                              }
+                            />
+                            Select all
+                          </label>
+                        </div>
+                        <div className="mt-2 max-h-64 space-y-1 overflow-y-auto rounded-lg border-2 border-divider p-2">
+                          {repositoryFiles.map((path) => (
+                            <label
+                              key={path}
+                              className="flex items-start gap-2 rounded-md px-2 py-1.5 text-sm font-bold hover:bg-cream"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedRepositoryFiles.includes(path)}
+                                onChange={(event) =>
+                                  setSelectedRepositoryFiles((selected) =>
+                                    event.target.checked
+                                      ? [...selected, path]
+                                      : selected.filter((item) => item !== path),
+                                  )
+                                }
+                                className="mt-1 shrink-0"
+                              />
+                              <span className="break-all">{path}</span>
+                            </label>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void importRepositoryFiles()}
+                          disabled={!selectedRepositoryFiles.length || repositoryFilesImporting}
+                          className="toon-button mt-3 rounded-2xl bg-purple text-sm text-surface disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {repositoryFilesImporting
+                            ? "Importing selected files…"
+                            : `Use ${selectedRepositoryFiles.length} selected file${selectedRepositoryFiles.length === 1 ? "" : "s"}`}
+                        </button>
+                        <p className="mt-2 text-xs font-bold text-muted">
+                          Selected files are combined into project documentation (50,000-character
+                          limit).
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
                 {docsTab === "preview" && (
                   <div className="rounded-2xl border-[3px] border-ink bg-surface p-4">
                     {docsFile && docs.trim() && (
                       <p className="mb-3 text-xs font-black uppercase text-muted">
                         Preview of {docsFile}
                       </p>
+                    )}
+                    {docs.length > 50000 && (
+                      <div
+                        role="status"
+                        className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border-2 border-ink bg-yellow/40 p-3"
+                      >
+                        <p className="text-sm font-bold">
+                          This document is {docs.length.toLocaleString()} characters. It exceeds the
+                          50,000-character project limit, but you can still download it.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={downloadDocumentation}
+                          className="toon-button shrink-0 rounded-2xl bg-surface text-sm"
+                        >
+                          <DownloadSimple size={18} weight="bold" />
+                          Download Markdown
+                        </button>
+                      </div>
                     )}
                     {docs.trim() ? (
                       <Markdown text={docs} />
@@ -772,10 +973,18 @@ export default function Store() {
               )}
               <button
                 type="submit"
-                disabled={submitting || imageBusy}
+                disabled={
+                  submitting || imageBusy || repositoryFilesLoading || repositoryFilesImporting
+                }
                 className="toon-button rounded-2xl bg-purple text-surface sm:col-span-2 sm:justify-self-start"
               >
-                {submitting ? "Publishing…" : imageBusy ? "Processing images…" : "Publish project"}{" "}
+                {submitting
+                  ? "Publishing…"
+                  : imageBusy
+                    ? "Processing images…"
+                    : repositoryFilesLoading || repositoryFilesImporting
+                      ? "Loading documentation…"
+                      : "Publish project"}{" "}
                 <ArrowRight size={20} weight="bold" />
               </button>
             </form>
