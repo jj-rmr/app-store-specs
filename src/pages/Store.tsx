@@ -29,6 +29,7 @@ import {
 import { useAuth } from "../auth/AuthProvider";
 import Brand from "../components/Brand";
 import AppCard from "../components/AppCard";
+import Comments from "../components/Comments";
 import Avatar from "../components/Avatar";
 import MarkdownFileViewer from "../components/MarkdownFileViewer";
 import MarkdownTextarea from "../components/MarkdownTextarea";
@@ -134,6 +135,7 @@ export default function Store() {
   const [fullApps, setFullApps] = useState<AppItem[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [myProfile, setMyProfile] = useState<Profile | null>(null);
+  const [profileTick, setProfileTick] = useState(0);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [milestonesLoading, setMilestonesLoading] = useState(true);
   const [milestonesError, setMilestonesError] = useState<string | null>(null);
@@ -142,7 +144,19 @@ export default function Store() {
   const [mPosting, setMPosting] = useState(false);
   const [mPostError, setMPostError] = useState<string | null>(null);
   const [cheerPending, setCheerPending] = useState<Set<string>>(new Set());
+  const [openThreads, setOpenThreads] = useState<Set<string>>(new Set());
+
+  const toggleThread = (id: string) => {
+    setOpenThreads((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
   const [query, setQuery] = useState("");
+  const [devQuery, setDevQuery] = useState("");
+  const [msQuery, setMsQuery] = useState("");
   const [category, setCategory] = useState<CategoryFilter>("All");
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
@@ -191,6 +205,17 @@ export default function Store() {
     [profiles, fullApps],
   );
 
+  const devQueryLower = devQuery.trim().toLowerCase();
+  const filteredProfiles = devQueryLower
+    ? profiles.filter((p) => `${p.name} ${p.role}`.toLowerCase().includes(devQueryLower))
+    : profiles;
+  const msQueryLower = msQuery.trim().toLowerCase();
+  const filteredMilestones = msQueryLower
+    ? milestones.filter((m) =>
+        `${m.body} ${m.authorName}`.toLowerCase().includes(msQueryLower),
+      )
+    : milestones;
+
   // userId -> 1|2|3 for the current top three. Recomputed every render from
   // live state, so trophies appear, move, and disappear as ranks change.
   const trophies = useMemo(() => topThreeTrophies(profiles, fullApps), [profiles, fullApps]);
@@ -229,7 +254,7 @@ export default function Store() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, profileTick]);
 
   useEffect(() => {
     let cancelled = false;
@@ -420,22 +445,24 @@ export default function Store() {
   const vote = async (id: string) => {
     if (!user) return;
     const previous = apps;
-    setApps((items) =>
-      items.map((app) =>
-        app.id === id
-          ? {
-              ...app,
-              votes: Math.max(0, app.votes + (app.viewerHasVoted ? -1 : 1)),
-              viewerHasVoted: !app.viewerHasVoted,
-            }
-          : app,
-      ),
-    );
+    const previousFull = fullApps;
+    const optimistic = (app: AppItem) =>
+      app.id === id
+        ? {
+            ...app,
+            votes: Math.max(0, app.votes + (app.viewerHasVoted ? -1 : 1)),
+            viewerHasVoted: !app.viewerHasVoted,
+          }
+        : app;
+    setApps((items) => items.map(optimistic));
+    setFullApps((items) => items.map(optimistic));
     try {
       const updated = await getAppRepo().toggleVote(id, user.id);
       setApps((items) => items.map((app) => (app.id === id ? updated : app)));
+      setFullApps((items) => items.map((app) => (app.id === id ? updated : app)));
     } catch {
       setApps(previous);
+      setFullApps(previousFull);
     }
   };
 
@@ -1235,6 +1262,17 @@ export default function Store() {
                 trophies={trophies}
                 projectTrophies={projectTrophies}
                 profiles={profilesLookup}
+                rankSummary={(() => {
+                  const resolvedId =
+                    selectedProfileId === "__me__" ? (user?.id ?? "__me__") : selectedProfileId;
+                  const rank = rankedDevelopers.findIndex((r) => r.profile.id === resolvedId);
+                  if (rank === -1) return undefined;
+                  return {
+                    rank: rank + 1,
+                    points: rankedDevelopers[rank].points,
+                    total: rankedDevelopers.length,
+                  };
+                })()}
                 onBack={() => {
                   window.history.pushState({}, "", "/builders");
                   setView("builders");
@@ -1242,12 +1280,41 @@ export default function Store() {
                 }}
                 onOpenApp={openAppFromProfile}
                 onOpenProfile={openProfile}
+                onClaimed={() => {
+                  if (!user) return;
+                  openProfile(user.id);
+                  setProfileTick((t) => t + 1);
+                  void loadApps();
+                }}
               />
             </section>
           )}
 
           {view === "discover" && (
             <section id="apps" className="mt-2 scroll-mt-6">
+              {user &&
+                !fullApps.some((a) =>
+                  a.creatorId ? a.creatorId === user.id : a.creator === user.name,
+                ) && (
+                  <div className="toon-card paper-note mb-6 flex flex-wrap items-center gap-4 rounded-lg bg-mint p-6">
+                    <RocketLaunch size={32} weight="duotone" className="shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-xl font-black">You have not shared anything yet</h3>
+                      <p className="mt-1 text-sm font-bold text-body">
+                        Publish your first project to appear on the leaderboard.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowForm(true);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className="toon-button shrink-0 rounded-2xl bg-purple px-5 py-2.5 text-sm text-surface"
+                    >
+                      <Plus size={18} weight="bold" /> Submit your first project
+                    </button>
+                  </div>
+                )}
               <div className="mb-5 border-t-2 border-dashed border-divider pt-6">
                 <p className="text-xs font-black uppercase text-purple">Catalog</p>
                 <h2 className="mt-1 text-2xl font-black">Student projects</h2>
@@ -1321,9 +1388,23 @@ export default function Store() {
               <div className="mb-6">
                 <p className="text-xs font-black uppercase text-purple">Student contributors</p>
                 <h2 className="mt-1 text-2xl font-black">Developer profiles</h2>
+                <label className="relative mt-4 block max-w-md">
+                  <span className="sr-only">Search developers</span>
+                  <MagnifyingGlass
+                    size={20}
+                    weight="bold"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-muted"
+                  />
+                  <input
+                    value={devQuery}
+                    onChange={(event) => setDevQuery(event.target.value)}
+                    className="toon-input py-2.5 pl-11 text-sm"
+                    placeholder="Search name or role…"
+                  />
+                </label>
               </div>
               <div className="toon-card paper-note grid gap-x-6 gap-y-8 rounded-lg p-6 pt-10 sm:grid-cols-2 sm:p-8 sm:pt-12 lg:grid-cols-3">
-                {profiles.map((p) => {
+                {filteredProfiles.map((p) => {
                   const place = trophies.get(p.id);
                   return (
                   <article
@@ -1374,6 +1455,11 @@ export default function Store() {
                   </article>
                   );
                 })}
+                {filteredProfiles.length === 0 && (
+                  <p className="font-bold text-muted sm:col-span-2 lg:col-span-3">
+                    No developers match “{devQuery.trim()}”.
+                  </p>
+                )}
               </div>
             </section>
           )}
@@ -1444,6 +1530,21 @@ export default function Store() {
                     )}
                   </form>
 
+                  <label className="relative mt-6 block">
+                    <span className="sr-only">Search updates</span>
+                    <MagnifyingGlass
+                      size={20}
+                      weight="bold"
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-muted"
+                    />
+                    <input
+                      value={msQuery}
+                      onChange={(event) => setMsQuery(event.target.value)}
+                      className="toon-input py-2.5 pl-11 text-sm"
+                      placeholder="Search updates or builders…"
+                    />
+                  </label>
+
                   {milestonesLoading ? (
                     <p className="mt-6 font-bold text-muted">Loading updates…</p>
                   ) : milestonesError ? (
@@ -1451,9 +1552,9 @@ export default function Store() {
                       <h3 className="text-xl font-black">Could not load updates</h3>
                       <p className="font-bold text-muted">{milestonesError}</p>
                     </div>
-                  ) : milestones.length ? (
+                  ) : filteredMilestones.length ? (
                     <ul className="mt-6 space-y-4">
-                      {milestones.map((m) => {
+                      {filteredMilestones.map((m) => {
                         const p = profilesLookup.get(m.authorId);
                         const linked = m.appId
                           ? fullApps.find((a) => a.id === m.appId)
@@ -1532,16 +1633,40 @@ export default function Store() {
                                   {m.viewerHasCheered ? "Uncheer" : "Cheer this on"}
                                 </span>
                               </button>
+                              <button
+                                onClick={() => toggleThread(m.id)}
+                                aria-expanded={openThreads.has(m.id)}
+                                className="flex items-center gap-1 text-sm font-black text-muted"
+                              >
+                                <ChatCircleDots size={18} weight="duotone" />
+                                {openThreads.has(m.id) ? "Hide replies" : "Reply"}
+                              </button>
                             </div>
+                            {openThreads.has(m.id) && (
+                              <div className="mt-3 border-t-2 border-dashed border-divider pt-4">
+                                <Comments
+                                  appId={`ms:${m.id}`}
+                                  appTitle={`Update by ${m.authorName}`}
+                                  currentUser={user ?? null}
+                                  profiles={profilesLookup}
+                                  trophies={trophies}
+                                  onOpenProfile={openProfile}
+                                />
+                              </div>
+                            )}
                           </li>
                         );
                       })}
                     </ul>
                   ) : (
                     <div className="toon-card paper-note mt-6 rounded-lg p-10 text-center">
-                      <h3 className="text-xl font-black">No updates yet</h3>
+                      <h3 className="text-xl font-black">
+                        {milestones.length ? "No matching updates" : "No updates yet"}
+                      </h3>
                       <p className="font-bold text-muted">
-                        Be the first to share what you shipped.
+                        {milestones.length
+                          ? "Try a different search."
+                          : "Be the first to share what you shipped."}
                       </p>
                     </div>
                   )}

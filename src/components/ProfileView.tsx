@@ -8,20 +8,28 @@ import { getAppRepo, getProfileRepo } from "../data/factory";
 import { fileToThumbnailDataUrl } from "../utils/images";
 import type { AppItem, Profile, User } from "../data/types";
 
+type RankSummary = {
+  rank: number;
+  points: number;
+  total: number;
+};
+
 type ProfileViewProps = {
   profileId: string;
   currentUser: User | null;
   trophies: Map<string, 1 | 2 | 3>;
   projectTrophies: Map<string, 1 | 2 | 3>;
   profiles: Map<string, Profile>;
+  rankSummary?: RankSummary;
   onBack: () => void;
   onOpenApp: (appId: string) => void;
   onOpenProfile: (profileId: string) => void;
+  onClaimed: () => void;
 };
 
 const AVATAR_COLORS = ["pink", "yellow", "mint", "sky", "lavender", "purple"] as const;
 
-export default function ProfileView({ profileId, currentUser, trophies, projectTrophies, profiles, onBack, onOpenApp, onOpenProfile }: ProfileViewProps) {
+export default function ProfileView({ profileId, currentUser, trophies, projectTrophies, profiles, rankSummary, onBack, onOpenApp, onOpenProfile, onClaimed }: ProfileViewProps) {
   const { updateName } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [apps, setApps] = useState<AppItem[]>([]);
@@ -33,6 +41,9 @@ export default function ProfileView({ profileId, currentUser, trophies, projectT
   const [bio, setBio] = useState("");
   const [color, setColor] = useState<string>("sky");
   const [imageUrl, setImageUrl] = useState("");
+  const [claimArmed, setClaimArmed] = useState(false);
+  const [claiming, setClaiming] = useState(false);
+  const [claimError, setClaimError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
@@ -162,6 +173,80 @@ export default function ProfileView({ profileId, currentUser, trophies, projectT
                 <ChatCircleDots size={16} weight="duotone" /> {totalFeedback} feedback
               </span>
             </div>
+            {rankSummary && (
+              <p className="mt-4 rounded-xl border-2 border-dashed border-divider p-3 text-sm font-bold text-muted">
+                Ranked #{rankSummary.rank} of {rankSummary.total} · {rankSummary.points}{" "}
+                {rankSummary.points === 1 ? "pt" : "pts"} — points are upvotes earned across all
+                shared projects.
+              </p>
+            )}
+            {currentUser &&
+              profile &&
+              profile.id !== currentUser.id &&
+              profile.name.trim().toLowerCase() ===
+                currentUser.name.trim().toLowerCase() && (
+                <div className="mt-4 rounded-2xl border-[3px] border-ink bg-cream p-4">
+                  {!claimArmed ? (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <p className="min-w-0 flex-1 text-sm font-bold text-body">
+                        Same name as you — is this your duplicate profile?
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setClaimArmed(true);
+                          setClaimError(null);
+                        }}
+                        className="toon-button shrink-0 rounded-2xl bg-yellow px-4 py-2 text-sm"
+                      >
+                        Claim this profile
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-sm font-black">
+                        Merge “{profile.name}” into your account? Its projects, comments, and
+                        votes move with it, and this duplicate disappears. Cannot be undone.
+                      </p>
+                      {claimError && (
+                        <p role="alert" className="mt-2 text-sm font-bold">
+                          {claimError}
+                        </p>
+                      )}
+                      <div className="mt-3 flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          disabled={claiming}
+                          onClick={() => {
+                            setClaiming(true);
+                            setClaimError(null);
+                            getProfileRepo()
+                              .claimProfile(profile.id, currentUser)
+                              .then(() => onClaimed())
+                              .catch((e) =>
+                                setClaimError(
+                                  e instanceof Error ? e.message : "Could not claim profile.",
+                                ),
+                              )
+                              .finally(() => setClaiming(false));
+                          }}
+                          className="toon-button rounded-2xl bg-purple px-4 py-2 text-sm text-surface"
+                        >
+                          {claiming ? "Merging…" : "Yes, merge it"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={claiming}
+                          onClick={() => setClaimArmed(false)}
+                          className="toon-button rounded-2xl bg-surface px-4 py-2 text-sm"
+                        >
+                          Keep separate
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
           </div>
           {isSelf && (
             <button

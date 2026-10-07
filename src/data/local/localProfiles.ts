@@ -1,5 +1,6 @@
 import { NotFoundError, type ProfileRepo } from "../repositories";
 import type { Profile, User } from "../types";
+import { claimDuplicateProfile } from "./claim";
 import { seedProfiles } from "./seed";
 
 const PROFILES_KEY = "cc.profiles.v1";
@@ -137,6 +138,11 @@ export function createLocalProfileRepo(): ProfileRepo {
       const updated: Profile = { ...target, name, role, bio, color, imageUrl: imageUrl || undefined };
       saveProfiles(profiles.map((p) => (p.id === id ? updated : p)));
       return updated;
+    },
+
+    async claimProfile(duplicateProfileId: string, requester: User): Promise<Profile> {
+      await delay(120);
+      return claimDuplicateProfile(duplicateProfileId, requester);
     },
   };
 }

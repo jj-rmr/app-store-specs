@@ -2,9 +2,16 @@ import type { AppRepo, AuthRepo, ProfileRepo } from "./repositories";
 import { createLocalAppRepo } from "./local/localApps";
 import { createLocalAuthRepo } from "./local/localAuth";
 import { createLocalProfileRepo } from "./local/localProfiles";
+import {
+  createHttpAppRepo,
+  createHttpAuthRepo,
+  createHttpProfileRepo,
+} from "./http/httpRepos";
 
-// VITE_DATA_SOURCE=local (default) | http (future real backend).
+// VITE_DATA_SOURCE=local (default, browser localStorage) | http (real backend).
 // UI must only depend on these interfaces, never on localStorage/fetch directly.
+// Switching to http requires VITE_API_URL plus the endpoint contract in
+// BACKEND_READINESS.md. Nothing else in the UI changes.
 const source = import.meta.env.VITE_DATA_SOURCE ?? "local";
 
 let authRepo: AuthRepo | null = null;
@@ -13,33 +20,27 @@ let profileRepo: ProfileRepo | null = null;
 
 export function getAuthRepo(): AuthRepo {
   if (!authRepo) {
-    if (source !== "local") {
-      // Future: return createHttpAuthRepo(baseUrl)
-      throw new Error(`Unknown data source: ${source}`);
-    }
-    authRepo = createLocalAuthRepo();
+    if (source === "http") authRepo = createHttpAuthRepo();
+    else if (source === "local") authRepo = createLocalAuthRepo();
+    else throw new Error(`Unknown data source: ${source}`);
   }
   return authRepo;
 }
 
 export function getAppRepo(): AppRepo {
   if (!appRepo) {
-    if (source !== "local") {
-      // Future: return createHttpAppRepo(baseUrl)
-      throw new Error(`Unknown data source: ${source}`);
-    }
-    appRepo = createLocalAppRepo();
+    if (source === "http") appRepo = createHttpAppRepo();
+    else if (source === "local") appRepo = createLocalAppRepo();
+    else throw new Error(`Unknown data source: ${source}`);
   }
   return appRepo;
 }
 
 export function getProfileRepo(): ProfileRepo {
   if (!profileRepo) {
-    if (source !== "local") {
-      // Future: return createHttpProfileRepo(baseUrl)
-      throw new Error(`Unknown data source: ${source}`);
-    }
-    profileRepo = createLocalProfileRepo();
+    if (source === "http") profileRepo = createHttpProfileRepo();
+    else if (source === "local") profileRepo = createLocalProfileRepo();
+    else throw new Error(`Unknown data source: ${source}`);
   }
   return profileRepo;
 }

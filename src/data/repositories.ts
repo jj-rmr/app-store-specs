@@ -21,6 +21,8 @@ export type GoogleAccount = {
   name: string;
   picture?: string;
   emailVerified?: boolean;
+  /** Raw Google access token. Local mode ignores it; http mode sends it for server verification. */
+  accessToken?: string;
 };
 
 export type AuthRepo = {
@@ -61,6 +63,7 @@ export type ProfileRepo = {
   getProfileByName(name: string): Promise<Profile | null>;
   ensureUserProfile(user: User): Promise<Profile>;
   updateProfile(id: string, patch: ProfilePatch, requesterId: string): Promise<Profile>;
+  claimProfile(duplicateProfileId: string, requester: User): Promise<Profile>;
 };
 
 export class AuthError extends Error {

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { GoogleOAuthProvider, useGoogleLogin, type TokenResponse } from "@react-oauth/google";
-import { ArrowLeft, ArrowRight, LockKey, Sparkle } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, Eye, EyeSlash, LockKey, Sparkle } from "@phosphor-icons/react";
 import { useAuth } from "../auth/AuthProvider";
 import Brand from "../components/Brand";
 import { getProfileRepo } from "../data/factory";
@@ -63,6 +63,7 @@ function GoogleContinueButton({
           name: info.name ?? "",
           picture: info.picture,
           emailVerified: info.email_verified,
+          accessToken: token.access_token,
         });
       } catch {
         onError("Could not read your Google profile. Try again.");
@@ -87,6 +88,7 @@ export default function Login() {
   const { signin, signinWithGoogleAccount } = useAuth();
   const [email, setEmail] = useState("student@example.com");
   const [password, setPassword] = useState("Password123");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [googleBusy, setGoogleBusy] = useState(false);
@@ -150,15 +152,30 @@ export default function Login() {
             </label>
             <label className="block">
               <span className="toon-label">Password</span>
-              <input
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                type="password"
-                autoComplete="current-password"
-                placeholder="Enter your password"
-                className="toon-input"
-                required
-              />
+              <span className="relative block">
+                <input
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  placeholder="Enter your password"
+                  className="toon-input pr-12"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
+                >
+                  {showPassword ? (
+                    <EyeSlash size={21} weight="bold" />
+                  ) : (
+                    <Eye size={21} weight="bold" />
+                  )}
+                </button>
+              </span>
             </label>
             {error && (
               <p
