@@ -3,7 +3,7 @@ import { useAuth } from "../auth/AuthProvider";
 import About from "./About";
 import Login from "./Login";
 import Store from "./Store";
-import Home from "./Home";
+import Landing from "./Landing";
 
 function currentPath() {
   return window.location.pathname.replace(/\/$/, "") || "/";
@@ -19,6 +19,26 @@ export default function Main() {
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
+  useEffect(() => {
+    if (loading) return;
+
+    const current = currentPath();
+    const destination = user
+      ? current === "/" || current === "/signin"
+        ? "/store"
+        : null
+      : current === "/"
+        ? "/landing"
+        : current === "/store" || current.startsWith("/store/")
+          ? "/signin"
+          : null;
+
+    if (destination) {
+      window.history.replaceState({}, "", destination);
+      setPath(destination);
+    }
+  }, [loading, path, user]);
+
   if (loading)
     return (
       <main className="grid min-h-screen place-items-center">
@@ -33,6 +53,12 @@ export default function Main() {
     return (
       <main className="min-h-screen">
         <About />
+      </main>
+    );
+  if (path === "/landing" || (path === "/" && !user))
+    return (
+      <main className="min-h-screen">
+        <Landing />
       </main>
     );
   if (user)
@@ -58,7 +84,7 @@ export default function Main() {
     );
   return (
     <main className="min-h-screen">
-      <Home />
+      <Landing />
     </main>
   );
 }
