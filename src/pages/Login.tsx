@@ -3,6 +3,7 @@ import { GoogleOAuthProvider, useGoogleLogin, type TokenResponse } from "@react-
 import { ArrowLeft, ArrowRight, LockKey, Sparkle } from "@phosphor-icons/react";
 import { useAuth } from "../auth/AuthProvider";
 import Brand from "../components/Brand";
+import { Button } from "../components/Button";
 import { getProfileRepo } from "../data/factory";
 import type { GoogleAccount } from "../data/repositories";
 
@@ -168,9 +169,9 @@ export default function Login() {
                 {error}
               </p>
             )}
-            <button className="toon-button w-full rounded-2xl bg-purple text-surface">
+            <Button type="submit" fullWidth>
               Continue <ArrowRight size={20} weight="bold" />
-            </button>
+            </Button>
           </form>
           <div className="my-6 flex items-center gap-3 text-xs font-black uppercase text-muted">
             <span className="h-0.5 flex-1 rounded bg-divider" aria-hidden="true" />

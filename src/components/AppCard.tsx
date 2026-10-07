@@ -1,12 +1,13 @@
 import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { ArrowRight, ChatCircleDots, Heart, X } from "@phosphor-icons/react";
+import { ArrowRight, ChatCircleDots, Heart, PencilSimple, X } from "@phosphor-icons/react";
 import Avatar from "./Avatar";
 import Comments from "./Comments";
 import MentionText from "./MentionText";
 import TrophyMark from "./TrophyMark";
 import { profileForApp } from "../data/profileLinks";
 import type { AppItem, Profile, User } from "../data/types";
+import { Button, ButtonLink } from "./Button";
 
 type AppCardProps = {
   app: AppItem;
@@ -55,45 +56,28 @@ export default function AppCard({
   const panelId = `comments-${app.id}`;
   const creatorProfile = profileForApp(app, profiles);
   const creatorName = creatorProfile ? creatorProfile.name : app.creator;
-  const isOwner =
-    user && (app.creatorId ? app.creatorId === user.id : app.creator === user.name);
+  const isOwner = user && (app.creatorId ? app.creatorId === user.id : app.creator === user.name);
 
   return (
-    <article
-      className="toon-card paper-note rounded-lg p-5 pt-9"
-      style={(() => {
-        const place = projectTrophies.get(app.id);
-        if (place === 1) return { backgroundColor: "#F7DE6B" };
-        if (place === 2) return { backgroundColor: "#DDE3EA" };
-        if (place === 3) return { backgroundColor: "#EAC39E" };
-        return undefined;
-      })()}
-    >
+    <article className="toon-card paper-note rounded-lg p-4 rotate-1">
       <button
         onClick={() => onOpenApp(app.id)}
         aria-label={`Open ${app.title} details`}
         className="block w-full"
       >
         {app.screenshots?.[0] ? (
-          <span className="relative block h-32 w-full overflow-hidden rounded-sm border-[3px] border-ink bg-ink">
-            <img
-              src={app.screenshots[0]}
-              alt=""
-              aria-hidden="true"
-              loading="lazy"
-              className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-xl"
-            />
+          <span className="relative block h-48 w-full overflow-hidden rounded-sm border-[3px] border-ink bg-ink">
             <img
               src={app.screenshots[0]}
               alt={`${app.title} thumbnail`}
               loading="lazy"
-              className="relative h-full w-full object-contain"
+              className="relative h-full w-full object-cover"
             />
           </span>
         ) : (
           <div
             style={{ backgroundColor: `var(--color-${app.color})` }}
-            className="project-cover flex h-32 items-center justify-center rounded-sm border-[3px] border-ink"
+            className="project-cover flex h-48 items-center justify-center rounded-sm border-[3px] border-ink"
           >
             <span className="rotate-[-4deg] text-4xl font-black">{app.title.charAt(0)}</span>
           </div>
@@ -142,7 +126,7 @@ export default function AppCard({
             </p>
           );
         })()}
-        <p className="mt-3 text-xs font-black">
+        <p className="mt-3 mb-2 text-xs font-black">
           by{" "}
           {creatorProfile ? (
             <button
@@ -158,44 +142,48 @@ export default function AppCard({
             <TrophyMark place={trophies.get(creatorProfile.id) as 1 | 2 | 3} size={16} />
           )}
         </p>
-        <div className="mt-5 flex items-center gap-4 border-t-2 border-dashed border-divider pt-4">
-          <button
-            onClick={() => onVote(app.id)}
-            aria-pressed={voted}
-            className={`flex items-center gap-1 text-sm font-black ${voted ? "text-vote" : ""}`}
-          >
-            <Heart size={20} weight={voted ? "fill" : "duotone"} />
-            {app.votes}
-          </button>
-          <button
-            onClick={() => onToggle(app.id)}
-            aria-expanded={expanded}
-            aria-haspopup="dialog"
-            aria-controls={panelId}
-            className="flex items-center gap-1 text-sm font-black"
-          >
-            <ChatCircleDots size={20} weight={expanded ? "fill" : "duotone"} />
-            {app.comments}
-            <span className="sr-only">Show comments</span>
-          </button>
-          {isOwner && (
-            <button
-              onClick={() => onEditApp(app.id)}
-              className="text-sm font-black underline decoration-2 underline-offset-4"
+        <div className="mt-7 flex min-h-8 items-center gap-4 border-t-2 border-dashed border-divider pt-4">
+          <span className="flex gap-2">
+            <Button variant="vote" onClick={() => onVote(app.id)} aria-pressed={voted}>
+              <Heart size={20} weight={voted ? "fill" : "duotone"} />
+              {app.votes}
+            </Button>
+            <Button
+              variant="vote"
+              onClick={() => onToggle(app.id)}
+              aria-expanded={expanded}
+              aria-haspopup="dialog"
+              aria-controls={panelId}
             >
-              Edit
-            </button>
-          )}
-          {app.url && (
-            <a
-              href={app.url}
-              target="_blank"
-              rel="noreferrer"
-              className="toon-button ml-auto rounded-xl bg-purple px-4 py-2 text-sm text-surface"
-            >
-              Open app <ArrowRight size={16} weight="bold" />
-            </a>
-          )}
+              <ChatCircleDots size={20} weight={expanded ? "fill" : "duotone"} />
+              {app.comments}
+              <span className="sr-only">Show comments</span>
+            </Button>
+          </span>
+          <span className="ml-auto flex items-center gap-2">
+            {isOwner && (
+              <Button
+                variant="outline-flat"
+                size="compact"
+                onClick={() => onEditApp(app.id)}
+                aria-label={`Edit ${app.title}`}
+              >
+                <PencilSimple size={16} weight="duotone" />
+              </Button>
+            )}
+            {app.url && (
+              <ButtonLink
+                href={app.url}
+                target="_blank"
+                rel="noreferrer"
+                variant="outline-flat"
+                size="compact"
+                className=""
+              >
+                Open app <ArrowRight size={14} weight="duotone" />
+              </ButtonLink>
+            )}
+          </span>
         </div>
 
         {expanded &&
@@ -205,7 +193,7 @@ export default function AppCard({
               aria-modal="true"
               aria-label={`Comments for ${app.title}`}
               onClick={() => onToggle(app.id)}
-              className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-ink/80 p-4"
+              className="fixed inset-0 z-100 flex items-center justify-center overflow-y-auto bg-ink/80 p-4"
             >
               <div
                 id={panelId}

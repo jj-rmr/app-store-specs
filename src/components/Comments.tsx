@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { ChatCircleDots, Heart } from "@phosphor-icons/react";
 import Avatar from "./Avatar";
 import TrophyMark from "./TrophyMark";
+import { Button } from "./Button";
 import { getAppRepo } from "../data/factory";
 import { profileForComment } from "../data/profileLinks";
 import type { Comment, Profile, User } from "../data/types";
@@ -193,18 +194,20 @@ export default function Comments({
   };
 
   const likeButton = (c: Comment, small = false) => (
-    <button
+    <Button
+      variant="vote"
+      size={small ? "compact" : "default"}
       type="button"
       onClick={() => void toggleLike(c)}
       aria-pressed={Boolean(c.viewerHasLiked)}
       aria-label={c.viewerHasLiked ? "Unlike this comment" : "Like this comment"}
       disabled={!currentUser || likePending.has(c.id)}
       title={currentUser ? undefined : "Sign in to like"}
-      className={`flex items-center gap-1 text-xs font-black ${c.viewerHasLiked ? "text-vote" : "text-muted"} disabled:opacity-60`}
+      className={c.viewerHasLiked ? "" : "text-muted"}
     >
       <Heart size={small ? 15 : 16} weight={c.viewerHasLiked ? "fill" : "duotone"} />
       {c.likes ?? 0}
-    </button>
+    </Button>
   );
 
   const form = (
@@ -221,13 +224,15 @@ export default function Comments({
               className="toon-input py-2 text-sm"
             />
           </label>
-          <button
+          <Button
+            variant="secondary"
+            size="small"
             type="submit"
             disabled={posting || !body.trim()}
-            className="toon-button shrink-0 rounded-xl bg-yellow px-4 py-2 text-sm"
+            className="shrink-0"
           >
             {posting ? "…" : "Post"}
-          </button>
+          </Button>
         </form>
       ) : (
         <p className="text-sm font-bold text-muted">Sign in to join the discussion.</p>
@@ -298,7 +303,9 @@ export default function Comments({
         {kids.length > REPLY_INITIAL && (
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {hidden > 0 && (
-              <button
+              <Button
+                variant="surface"
+                size="compact"
                 type="button"
                 onClick={() =>
                   setVisibleReplies((prev) => ({
@@ -306,13 +313,14 @@ export default function Comments({
                     [c.id]: visible + REPLY_STEP,
                   }))
                 }
-                className="toon-button rounded-xl bg-surface px-3 py-1 text-xs"
               >
                 See more ({hidden} more)
-              </button>
+              </Button>
             )}
             {visible > REPLY_INITIAL && (
-              <button
+              <Button
+                variant="surface"
+                size="compact"
                 type="button"
                 onClick={() =>
                   setVisibleReplies((prev) => ({
@@ -320,10 +328,9 @@ export default function Comments({
                     [c.id]: Math.max(REPLY_INITIAL, visible - REPLY_STEP),
                   }))
                 }
-                className="toon-button rounded-xl bg-surface px-3 py-1 text-xs"
               >
                 See less
-              </button>
+              </Button>
             )}
             {hidden > 0 ? (
               <button
@@ -362,13 +369,15 @@ export default function Comments({
                 className="toon-input py-2 text-sm"
               />
             </label>
-            <button
+              <Button
+                variant="secondary"
+                size="small"
               type="submit"
-              disabled={replying || !replyBody.trim()}
-              className="toon-button shrink-0 rounded-xl bg-yellow px-4 py-2 text-sm"
-            >
-              {replying ? "…" : "Reply"}
-            </button>
+                disabled={replying || !replyBody.trim()}
+                className="shrink-0"
+              >
+                {replying ? "…" : "Reply"}
+              </Button>
           </form>
         )}
         {replyTo === c.id && replyError && (
