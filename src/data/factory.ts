@@ -7,11 +7,16 @@ import {
   createHttpAuthRepo,
   createHttpProfileRepo,
 } from "./http/httpRepos";
+import {
+  createSupabaseAppRepo,
+  createSupabaseAuthRepo,
+  createSupabaseProfileRepo,
+} from "./supabase/supabaseRepos";
 
-// VITE_DATA_SOURCE=local (default, browser localStorage) | http (real backend).
+// VITE_DATA_SOURCE=local (default, browser localStorage) | supabase | http.
 // UI must only depend on these interfaces, never on localStorage/fetch directly.
-// Switching to http requires VITE_API_URL plus the endpoint contract in
-// BACKEND_READINESS.md. Nothing else in the UI changes.
+// Switching sources needs no UI edits; see BACKEND_READINESS.md for what each
+// source requires.
 const source = import.meta.env.VITE_DATA_SOURCE ?? "local";
 
 let authRepo: AuthRepo | null = null;
@@ -21,6 +26,7 @@ let profileRepo: ProfileRepo | null = null;
 export function getAuthRepo(): AuthRepo {
   if (!authRepo) {
     if (source === "http") authRepo = createHttpAuthRepo();
+    else if (source === "supabase") authRepo = createSupabaseAuthRepo();
     else if (source === "local") authRepo = createLocalAuthRepo();
     else throw new Error(`Unknown data source: ${source}`);
   }
@@ -30,6 +36,7 @@ export function getAuthRepo(): AuthRepo {
 export function getAppRepo(): AppRepo {
   if (!appRepo) {
     if (source === "http") appRepo = createHttpAppRepo();
+    else if (source === "supabase") appRepo = createSupabaseAppRepo();
     else if (source === "local") appRepo = createLocalAppRepo();
     else throw new Error(`Unknown data source: ${source}`);
   }
@@ -39,6 +46,7 @@ export function getAppRepo(): AppRepo {
 export function getProfileRepo(): ProfileRepo {
   if (!profileRepo) {
     if (source === "http") profileRepo = createHttpProfileRepo();
+    else if (source === "supabase") profileRepo = createSupabaseProfileRepo();
     else if (source === "local") profileRepo = createLocalProfileRepo();
     else throw new Error(`Unknown data source: ${source}`);
   }

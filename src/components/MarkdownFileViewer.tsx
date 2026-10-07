@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BookOpenText, FileText, UploadSimple, X } from "@phosphor-icons/react";
+import { Button, ButtonLabel } from "./Button";
 import Markdown from "./Markdown";
 import { readMarkdownFile } from "../utils/readMarkdownFile";
 
@@ -62,14 +63,14 @@ export default function MarkdownFileViewer({
 
   return (
     <>
-      <button
+      <Button
+        variant="surface"
         type="button"
         onClick={() => setOpen(true)}
-        className="toon-button rounded-2xl bg-surface"
       >
         <BookOpenText size={20} weight="duotone" />
         {buttonLabel}
-      </button>
+      </Button>
       {open &&
         createPortal(
           <div
@@ -121,13 +122,14 @@ export default function MarkdownFileViewer({
                       event.currentTarget.value = "";
                     }}
                   />
-                  <label
+                  <ButtonLabel
+                    variant="secondary"
                     htmlFor={inputId}
-                    className="toon-button cursor-pointer rounded-2xl bg-yellow text-sm peer-focus-visible:outline-none peer-focus-visible:ring-4 peer-focus-visible:ring-yellow"
+                    className="cursor-pointer text-sm peer-focus-visible:outline-none peer-focus-visible:ring-4 peer-focus-visible:ring-yellow"
                   >
                     <UploadSimple size={19} weight="bold" aria-hidden="true" />
                     {loading ? "Opening…" : fileName ? "Open another file" : "Choose a file"}
-                  </label>
+                  </ButtonLabel>
                   <p className="text-sm font-bold text-muted">
                     Markdown, .txt, and plain-text README files up to 50,000 characters.
                   </p>

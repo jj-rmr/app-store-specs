@@ -23,6 +23,7 @@ import MentionText from "./MentionText";
 import TrophyMark from "./TrophyMark";
 import Markdown from "./Markdown";
 import MarkdownTextarea from "./MarkdownTextarea";
+import { Button, ButtonLabel, ButtonLink } from "./Button";
 import { getAppRepo, getProfileRepo } from "../data/factory";
 import { profileIdForApp } from "../data/profileLinks";
 import { fileToThumbnailDataUrl } from "../utils/images";
@@ -115,14 +116,15 @@ function DocsSection({ text, source }: { text: string; source?: string }) {
       </div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         {source && <p className="text-xs font-black uppercase text-muted">{source}</p>}
-        <button
+        <Button
+          variant="surface"
+          size="small"
           type="button"
           onClick={download}
-          className="toon-button rounded-2xl bg-surface text-sm"
         >
           <DownloadSimple size={19} weight="bold" />
           Download documentation
-        </button>
+        </Button>
       </div>
       <div
         ref={contentRef}
@@ -141,32 +143,35 @@ function DocsSection({ text, source }: { text: string; source?: string }) {
       {long && (
         <div className="mt-4 flex flex-wrap items-center gap-3">
           {hasMore && (
-            <button
+            <Button
+              variant="secondary"
+              size="small"
               onClick={seeMore}
               aria-expanded={expanded}
-              className="toon-button rounded-2xl bg-yellow text-sm"
             >
               See more
-            </button>
+            </Button>
           )}
           {expanded && capped && height > COLLAPSED_PX && (
-            <button
+            <Button
+              variant="surface"
+              size="small"
               onClick={seeLess}
               aria-expanded={expanded}
-              className="toon-button rounded-2xl bg-surface text-sm"
             >
               See less
-            </button>
+            </Button>
           )}
           {height === null ? (
             <>
-              <button
+              <Button
+                variant="surface"
+                size="small"
                 onClick={seeLess}
                 aria-expanded={expanded}
-                className="toon-button rounded-2xl bg-surface text-sm"
               >
                 See less
-              </button>
+              </Button>
               <button
                 onClick={collapse}
                 className="text-sm font-black underline decoration-2 underline-offset-4"
@@ -505,9 +510,9 @@ export default function ProjectView({
       <div className="toon-card paper-note rounded-lg p-10 text-center">
         <h3 className="text-xl font-black">Project not found</h3>
         <p className="font-bold text-muted">{error ?? "This project does not exist."}</p>
-        <button onClick={onBack} className="toon-button mt-5 rounded-2xl bg-yellow">
+        <Button variant="secondary" className="mt-5" onClick={onBack}>
           <ArrowLeft size={18} weight="bold" /> Back
-        </button>
+        </Button>
       </div>
     );
   }
@@ -517,9 +522,9 @@ export default function ProjectView({
 
   return (
     <div>
-      <button onClick={onBack} className="toon-button rounded-2xl bg-surface px-4 py-2 text-sm">
+      <Button variant="surface" size="small" onClick={onBack}>
         <ArrowLeft size={18} weight="bold" /> Back to projects
-      </button>
+      </Button>
 
       <div className="toon-card paper-note mt-5 overflow-hidden rounded-lg">
         {cover ? (
@@ -557,9 +562,9 @@ export default function ProjectView({
           <div className="flex flex-wrap items-start justify-between gap-4">
             <p className="ink-stamp bg-surface">{app.category}</p>
             {isOwner && !editing && (
-              <button onClick={beginEdit} className="toon-button rounded-2xl bg-yellow text-sm">
+              <Button variant="secondary" size="small" onClick={beginEdit}>
                 <PencilSimple size={18} weight="bold" /> Edit project
-              </button>
+              </Button>
             )}
           </div>
           <h2 className="mt-4 text-3xl font-black sm:text-4xl">
@@ -577,28 +582,29 @@ export default function ProjectView({
           </p>
 
           <div className="mt-5 flex flex-wrap items-center gap-4">
-            <button
+            <Button
+              variant="vote"
               onClick={() => void vote()}
               aria-pressed={Boolean(app.viewerHasVoted)}
               disabled={!currentUser}
-              className={`flex items-center gap-1 text-sm font-black ${app.viewerHasVoted ? "text-vote" : ""}`}
             >
               <Heart size={20} weight={app.viewerHasVoted ? "fill" : "duotone"} />
               {app.votes} upvotes
-            </button>
+            </Button>
             <span className="flex items-center gap-1 text-sm font-black">
               <ChatCircleDots size={20} weight="duotone" />
               {app.comments} feedback
             </span>
             {app.url && (
-              <a
+              <ButtonLink
                 href={app.url}
                 target="_blank"
                 rel="noreferrer"
-                className="toon-button ml-auto rounded-2xl bg-purple px-5 py-2.5 text-sm text-surface"
+                className="ml-auto"
+                size="small"
               >
                 Open app <ArrowRight size={16} weight="bold" />
-              </a>
+              </ButtonLink>
             )}
           </div>
 
@@ -732,7 +738,7 @@ export default function ProjectView({
           </label>
           <div className="sm:col-span-2">
             <span className="toon-label">Thumbnails (up to 3, first is the cover)</span>
-            <label className="toon-button cursor-pointer rounded-2xl bg-surface text-sm">
+            <ButtonLabel variant="surface" size="small" className="cursor-pointer">
               <Images size={20} weight="duotone" />
               {eBusy ? "Processing…" : "Choose from gallery"}
               <input
@@ -746,7 +752,7 @@ export default function ProjectView({
                   e.target.value = "";
                 }}
               />
-            </label>
+            </ButtonLabel>
             {eImgError && (
               <p role="alert" className="mt-2 text-sm font-bold">
                 {eImgError}
@@ -783,24 +789,28 @@ export default function ProjectView({
             <span className="toon-label">Documentation (optional, markdown supported)</span>
             <div className="mb-3 flex flex-wrap items-center gap-2">
               {(["write", "upload", "repository"] as const).map((tab) => (
-                <button
+                <Button
                   key={tab}
+                  variant="outline-flat"
+                  size="small"
                   type="button"
                   onClick={() => {
                     setEDocsPreviewReturnTab(tab);
                     setEDocsTab(tab);
                   }}
                   aria-pressed={eDocsTab === tab}
-                  className={`rounded-md border-2 border-ink px-3 py-1.5 text-sm font-black capitalize ${eDocsTab === tab ? "bg-purple text-surface" : "bg-surface"}`}
+                  className="capitalize"
                 >
                   {tab === "upload"
                     ? "Upload .md"
                     : tab === "repository"
                       ? "GitHub repository"
                       : tab}
-                </button>
+                </Button>
               ))}
-              <button
+              <Button
+                variant="outline-flat"
+                size="small"
                 type="button"
                 onClick={() => {
                   if (eDocsTab === "preview") setEDocsTab(eDocsPreviewReturnTab);
@@ -810,7 +820,7 @@ export default function ProjectView({
                   }
                 }}
                 aria-pressed={eDocsTab === "preview"}
-                className="ml-auto inline-flex items-center gap-1 rounded-md border-2 border-ink bg-surface px-3 py-1.5 text-sm font-black hover:bg-cream focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow"
+                className="ml-auto"
               >
                 {eDocsTab === "preview" ? (
                   <>
@@ -821,7 +831,7 @@ export default function ProjectView({
                     <Eye size={16} weight="bold" /> Preview
                   </>
                 )}
-              </button>
+              </Button>
             </div>
             {eDocsTab === "write" && (
               <MarkdownTextarea
@@ -837,7 +847,7 @@ export default function ProjectView({
             )}
             {eDocsTab === "upload" && (
               <div>
-                <label className="toon-button cursor-pointer rounded-2xl bg-surface text-sm">
+                <ButtonLabel variant="surface" size="small" className="cursor-pointer">
                   <BookOpenText size={20} weight="duotone" />
                   Choose README.md
                   <input
@@ -861,7 +871,7 @@ export default function ProjectView({
                         );
                     }}
                   />
-                </label>
+                </ButtonLabel>
                 {eDocsFile && (
                   <p className="mt-2 text-sm font-bold text-muted">
                     {eDocsFile} · {eDocs.length} chars
@@ -882,16 +892,18 @@ export default function ProjectView({
                   Choose Markdown files from the public GitHub repository in your repo
                   link.
                 </p>
-                <button
+                <Button
+                  variant="secondary"
+                  size="small"
                   type="button"
                   onClick={() => void eLoadRepositoryFiles()}
                   disabled={eRepositoryFilesLoading || eRepositoryFilesImporting}
-                  className="toon-button mt-3 rounded-2xl bg-yellow text-sm"
+                  className="mt-3"
                 >
                   {eRepositoryFilesLoading
                     ? "Loading repository files…"
                     : "Load Markdown files"}
-                </button>
+                </Button>
                 {eRepositoryFilesError && (
                   <p role="alert" className="mt-3 text-sm font-bold text-ink">
                     {eRepositoryFilesError}
@@ -938,16 +950,17 @@ export default function ProjectView({
                         </label>
                       ))}
                     </div>
-                    <button
+                    <Button
+                      size="small"
                       type="button"
                       onClick={() => void eImportRepositoryFiles()}
                       disabled={!eSelectedRepositoryFiles.length || eRepositoryFilesImporting}
-                      className="toon-button mt-3 rounded-2xl bg-purple text-sm text-surface disabled:cursor-not-allowed disabled:opacity-60"
+                      className="mt-3"
                     >
                       {eRepositoryFilesImporting
                         ? "Importing selected files…"
                         : `Use ${eSelectedRepositoryFiles.length} selected file${eSelectedRepositoryFiles.length === 1 ? "" : "s"}`}
-                    </button>
+                    </Button>
                     <p className="mt-2 text-xs font-bold text-muted">
                       Selected files are combined into project documentation (50,000-character
                       limit).
@@ -976,32 +989,33 @@ export default function ProjectView({
             </p>
           )}
           <div className="flex flex-wrap gap-3 sm:col-span-2">
-            <button
+            <Button
               type="submit"
               disabled={eSaving || eBusy}
-              className="toon-button rounded-2xl bg-purple text-surface"
             >
               {eSaving ? "Saving…" : "Save changes"}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="surface"
               type="button"
               onClick={() => {
                 setEditing(false);
                 setEError(null);
                 setConfirmDelete(false);
               }}
-              className="toon-button rounded-2xl bg-surface"
             >
               Cancel
-            </button>
+            </Button>
             {!confirmDelete ? (
-              <button
+              <Button
+                variant="surface"
+                size="small"
                 type="button"
                 onClick={() => setConfirmDelete(true)}
-                className="toon-button ml-auto rounded-2xl bg-surface text-sm text-alert"
+                className="ml-auto text-alert"
               >
                 <Trash size={18} weight="bold" /> Delete project
-              </button>
+              </Button>
             ) : (
               <div
                 role="alert"
@@ -1011,22 +1025,24 @@ export default function ProjectView({
                   Delete “{app.title}” forever? Its screenshots, docs, and feedback go with it. This
                   cannot be undone.
                 </p>
-                <button
+                <Button
+                  variant="danger"
+                  size="small"
                   type="button"
                   onClick={() => void deleteProject()}
                   disabled={deleting}
-                  className="toon-button rounded-2xl bg-alert px-4 py-2 text-sm text-surface"
                 >
                   <Trash size={16} weight="bold" /> {deleting ? "Deleting…" : "Yes, delete it"}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="small"
                   type="button"
                   onClick={() => setConfirmDelete(false)}
                   disabled={deleting}
-                  className="toon-button rounded-2xl bg-yellow px-4 py-2 text-sm"
                 >
                   Keep it
-                </button>
+                </Button>
               </div>
             )}
           </div>

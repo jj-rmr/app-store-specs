@@ -36,6 +36,7 @@ import MarkdownTextarea from "../components/MarkdownTextarea";
 import Markdown from "../components/Markdown";
 import ProfileView from "../components/ProfileView";
 import ProjectView from "../components/ProjectView";
+import { Button, ButtonLabel } from "../components/Button";
 import { getAppRepo, getProfileRepo } from "../data/factory";
 import { indexProfiles } from "../data/profileLinks";
 import { fileToThumbnailDataUrl } from "../utils/images";
@@ -801,13 +802,13 @@ export default function Store() {
               <p className="mt-3 max-w-2xl text-muted">{copyForView[view].description}</p>
             </div>
             {view !== "profile" && view !== "project" && (
-              <button
+              <Button
+                variant="secondary"
                 onClick={() => setShowForm((open) => !open)}
-                className="toon-button rounded-2xl bg-yellow"
               >
                 {showForm ? <X size={20} weight="bold" /> : <Plus size={20} weight="bold" />}
                 {showForm ? "Close" : "Submit a project"}
-              </button>
+              </Button>
             )}
           </div>
           {view === "discover" && (
@@ -931,7 +932,7 @@ export default function Store() {
               </label>
               <div className="sm:col-span-2">
                 <span className="toon-label">Thumbnails (up to 3, first is the cover)</span>
-                <label className="toon-button cursor-pointer rounded-2xl bg-surface text-sm">
+                <ButtonLabel variant="surface" size="small" className="cursor-pointer">
                   <Images size={20} weight="duotone" />
                   {imageBusy
                     ? "Processing…"
@@ -949,7 +950,7 @@ export default function Store() {
                       e.target.value = "";
                     }}
                   />
-                </label>
+                </ButtonLabel>
                 {imgError && (
                   <p role="alert" className="mt-2 text-sm font-bold">
                     {imgError}
@@ -989,24 +990,28 @@ export default function Store() {
               <div className="sm:col-span-2">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                   {(["write", "upload", "repository"] as const).map((tab) => (
-                    <button
+                    <Button
                       key={tab}
+                      variant="outline-flat"
+                      size="small"
                       type="button"
                       onClick={() => {
                         setDocsPreviewReturnTab(tab);
                         setDocsTab(tab);
                       }}
                       aria-pressed={docsTab === tab}
-                      className={`rounded-md border-2 border-ink px-3 py-1.5 text-sm font-black capitalize ${docsTab === tab ? "bg-purple text-surface" : "bg-surface"}`}
+                      className="capitalize"
                     >
                       {tab === "upload"
                         ? "Upload .md"
                         : tab === "repository"
                           ? "GitHub repository"
                           : tab}
-                    </button>
+                    </Button>
                   ))}
-                  <button
+                  <Button
+                    variant="outline-flat"
+                    size="small"
                     type="button"
                     onClick={() => {
                       if (docsTab === "preview") setDocsTab(docsPreviewReturnTab);
@@ -1016,7 +1021,7 @@ export default function Store() {
                       }
                     }}
                     aria-pressed={docsTab === "preview"}
-                    className="ml-auto inline-flex items-center gap-1 rounded-md border-2 border-ink bg-surface px-3 py-1.5 text-sm font-black hover:bg-cream focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow"
+                    className="ml-auto"
                   >
                     {docsTab === "preview" ? (
                       <>
@@ -1027,7 +1032,7 @@ export default function Store() {
                         <Eye size={16} weight="bold" /> Preview
                       </>
                     )}
-                  </button>
+                  </Button>
                 </div>
                 {docsTab === "write" && (
                   <MarkdownTextarea
@@ -1043,7 +1048,7 @@ export default function Store() {
                 )}
                 {docsTab === "upload" && (
                   <div>
-                    <label className="toon-button cursor-pointer rounded-2xl bg-surface text-sm">
+                    <ButtonLabel variant="surface" size="small" className="cursor-pointer">
                       <BookOpenText size={20} weight="duotone" />
                       Choose README.md
                       <input
@@ -1055,7 +1060,7 @@ export default function Store() {
                           e.target.value = "";
                         }}
                       />
-                    </label>
+                    </ButtonLabel>
                     <span className="mt-2 block text-xs text-body">
                       Works with README.md or plain extensionless README files, like on GitHub.
                     </span>
@@ -1088,14 +1093,16 @@ export default function Store() {
                     <p className="text-sm font-bold text-body">
                       Choose Markdown files from the public GitHub repository in your project link.
                     </p>
-                    <button
+                    <Button
+                      variant="secondary"
+                      size="small"
                       type="button"
                       onClick={() => void loadRepositoryFiles()}
                       disabled={repositoryFilesLoading || repositoryFilesImporting}
-                      className="toon-button mt-3 rounded-2xl bg-yellow text-sm"
+                      className="mt-3"
                     >
                       {repositoryFilesLoading ? "Loading repository files…" : "Load Markdown files"}
-                    </button>
+                    </Button>
                     {repositoryFilesError && (
                       <p role="alert" className="mt-3 text-sm font-bold text-ink">
                         {repositoryFilesError}
@@ -1142,16 +1149,17 @@ export default function Store() {
                             </label>
                           ))}
                         </div>
-                        <button
+                        <Button
+                          size="small"
                           type="button"
                           onClick={() => void importRepositoryFiles()}
                           disabled={!selectedRepositoryFiles.length || repositoryFilesImporting}
-                          className="toon-button mt-3 rounded-2xl bg-purple text-sm text-surface disabled:cursor-not-allowed disabled:opacity-60"
+                          className="mt-3"
                         >
                           {repositoryFilesImporting
                             ? "Importing selected files…"
                             : `Use ${selectedRepositoryFiles.length} selected file${selectedRepositoryFiles.length === 1 ? "" : "s"}`}
-                        </button>
+                        </Button>
                         <p className="mt-2 text-xs font-bold text-muted">
                           Selected files are combined into project documentation (50,000-character
                           limit).
@@ -1178,14 +1186,16 @@ export default function Store() {
                           This document is {docs.length.toLocaleString()} characters. It exceeds the
                           50,000-character project limit, but you can still download it.
                         </p>
-                        <button
+                        <Button
+                          variant="surface"
+                          size="small"
                           type="button"
                           onClick={downloadDocumentation}
-                          className="toon-button shrink-0 rounded-2xl bg-surface text-sm"
+                          className="shrink-0"
                         >
                           <DownloadSimple size={18} weight="bold" />
                           Download Markdown
-                        </button>
+                        </Button>
                       </div>
                     )}
                     {docs.trim() ? (
@@ -1203,12 +1213,12 @@ export default function Store() {
                   {submitError}
                 </p>
               )}
-              <button
+              <Button
                 type="submit"
                 disabled={
                   submitting || imageBusy || repositoryFilesLoading || repositoryFilesImporting
                 }
-                className="toon-button rounded-2xl bg-purple text-surface sm:col-span-2 sm:justify-self-start"
+                className="sm:col-span-2 sm:justify-self-start"
               >
                 {submitting
                   ? "Publishing…"
@@ -1218,7 +1228,7 @@ export default function Store() {
                       ? "Loading documentation…"
                       : "Publish project"}{" "}
                 <ArrowRight size={20} weight="bold" />
-              </button>
+              </Button>
             </form>
           )}
 
@@ -1321,15 +1331,15 @@ export default function Store() {
               </div>
               <div className="mb-6 flex flex-wrap gap-2">
                 {categories.map(({ label, Icon }) => (
-                  <button
+                  <Button
+                    variant="outline-flat"
                     key={label}
                     onClick={() => setCategory(label)}
                     aria-pressed={category === label}
-                    className={`flex min-w-max items-center gap-2 rounded-md border-2 border-ink px-3 py-2 text-sm font-black ${category === label ? "bg-purple text-surface" : "bg-surface"}`}
                   >
                     <Icon size={19} weight="duotone" />
                     {label}
-                  </button>
+                  </Button>
                 ))}
               </div>
               {appsLoading ? (
@@ -1338,12 +1348,13 @@ export default function Store() {
                 <div className="toon-card paper-note rounded-lg p-10 text-center">
                   <h3 className="mt-3 text-xl font-black">Could not load projects</h3>
                   <p className="font-bold text-muted">{appsError}</p>
-                  <button
+                  <Button
+                    variant="secondary"
                     onClick={() => void loadApps()}
-                    className="toon-button mt-5 rounded-2xl bg-yellow"
+                    className="mt-5"
                   >
                     Retry
-                  </button>
+                  </Button>
                 </div>
               ) : apps.length ? (
                 <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -1515,13 +1526,14 @@ export default function Store() {
                         </select>
                       </label>
                       <span className="text-xs font-black text-muted">{mBody.length}/280</span>
-                      <button
+                      <Button
+                        size="small"
                         type="submit"
                         disabled={mPosting || !mBody.trim()}
-                        className="toon-button rounded-2xl bg-purple px-5 py-2.5 text-sm text-surface"
+                        className="text-sm"
                       >
                         {mPosting ? "Posting…" : "Post update"}
-                      </button>
+                      </Button>
                     </div>
                     {mPostError && (
                       <p role="alert" className="mt-3 text-sm font-bold">
@@ -1618,11 +1630,12 @@ export default function Store() {
                                   )}
                                 </button>
                               )}
-                              <button
+                              <Button
+                                variant="vote"
                                 onClick={() => void cheer(m)}
                                 aria-pressed={Boolean(m.viewerHasCheered)}
                                 disabled={!user || cheerPending.has(m.id)}
-                                className={`flex items-center gap-1 text-sm font-black disabled:opacity-60 ${m.viewerHasCheered ? "text-vote" : "text-muted"}`}
+                                className={m.viewerHasCheered ? "" : "text-muted"}
                               >
                                 <HandsClapping
                                   size={18}
@@ -1632,7 +1645,7 @@ export default function Store() {
                                 <span className="sr-only">
                                   {m.viewerHasCheered ? "Uncheer" : "Cheer this on"}
                                 </span>
-                              </button>
+                              </Button>
                               <button
                                 onClick={() => toggleThread(m.id)}
                                 aria-expanded={openThreads.has(m.id)}

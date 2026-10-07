@@ -3,6 +3,7 @@ import { ArrowLeft, ChatCircleDots, Heart, Images, PencilSimple } from "@phospho
 import Avatar from "./Avatar";
 import MentionText from "./MentionText";
 import TrophyMark from "./TrophyMark";
+import { Button, ButtonLabel } from "./Button";
 import { useAuth } from "../auth/AuthProvider";
 import { getAppRepo, getProfileRepo } from "../data/factory";
 import { fileToThumbnailDataUrl } from "../utils/images";
@@ -130,9 +131,9 @@ export default function ProfileView({ profileId, currentUser, trophies, projectT
       <div className="toon-card paper-note rounded-lg p-10 text-center">
         <h3 className="text-xl font-black">Developer not found</h3>
         <p className="font-bold text-muted">{error ?? "This profile does not exist."}</p>
-        <button onClick={onBack} className="toon-button mt-5 rounded-2xl bg-yellow">
+        <Button variant="secondary" className="mt-5" onClick={onBack}>
           <ArrowLeft size={18} weight="bold" /> Back
-        </button>
+        </Button>
       </div>
     );
   }
@@ -142,12 +143,13 @@ export default function ProfileView({ profileId, currentUser, trophies, projectT
 
   return (
     <div>
-      <button
+      <Button
+        variant="surface"
+        size="small"
         onClick={onBack}
-        className="toon-button rounded-2xl bg-surface px-4 py-2 text-sm"
       >
         <ArrowLeft size={18} weight="bold" /> Back to developers
-      </button>
+      </Button>
 
       <div className="toon-card paper-note mt-5 rounded-lg p-6 pt-10 sm:p-8 sm:pt-12">
         <div className="flex flex-wrap items-start gap-5">
@@ -249,12 +251,13 @@ export default function ProfileView({ profileId, currentUser, trophies, projectT
               )}
           </div>
           {isSelf && (
-            <button
+            <Button
+              variant="secondary"
+              size="small"
               onClick={() => setEditing((v) => !v)}
-              className="toon-button rounded-2xl bg-yellow text-sm"
             >
               <PencilSimple size={18} weight="bold" /> {editing ? "Close" : "Edit profile"}
-            </button>
+            </Button>
           )}
         </div>
 
@@ -305,7 +308,7 @@ export default function ProfileView({ profileId, currentUser, trophies, projectT
             <label className="sm:col-span-2">
               <span className="toon-label">Profile photo</span>
               <span className="flex flex-wrap items-center gap-3">
-                <label className="toon-button cursor-pointer rounded-2xl bg-surface text-sm">
+                <ButtonLabel variant="surface" size="small" className="cursor-pointer">
                   <Images size={18} weight="duotone" />
                   {photoBusy ? "Processing…" : "Choose from gallery"}
                   <input
@@ -327,7 +330,7 @@ export default function ProfileView({ profileId, currentUser, trophies, projectT
                         .finally(() => setPhotoBusy(false));
                     }}
                   />
-                </label>
+                </ButtonLabel>
                 {imageUrl && (
                   <button
                     type="button"
@@ -357,13 +360,14 @@ export default function ProfileView({ profileId, currentUser, trophies, projectT
                 {saveError}
               </p>
             )}
-            <button
+            <Button
+              size="small"
               type="submit"
               disabled={saving}
-              className="toon-button rounded-2xl bg-purple text-sm text-surface sm:justify-self-start"
+              className="sm:justify-self-start"
             >
               {saving ? "Saving…" : "Save profile"}
-            </button>
+            </Button>
           </form>
         )}
       </div>

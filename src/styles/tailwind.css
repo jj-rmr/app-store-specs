@@ -54,6 +54,8 @@ html {
     24px 24px,
     24px 24px,
     24px 24px;
+
+    scrollbar-gutter: stable;
 }
 
 *::-webkit-scrollbar {
@@ -128,8 +130,6 @@ body::before {
 h1,
 h2,
 h3,
-.toon-button,
-.toon-button-control,
 nav {
   font-family: var(--font-sans);
 }
@@ -181,94 +181,6 @@ nav {
   box-shadow: 4px 4px 0 var(--color-ink-shadow);
 }
 
-@utility toon-button {
-  @apply inline-flex items-center justify-center gap-2 border-[3px] px-5 py-3 font-black transition-[transform,box-shadow] duration-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow focus-visible:ring-offset-2;
-  border-color: var(--color-ink);
-  box-shadow: 0 6px 0 var(--color-ink);
-}
-
-.toon-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 0 var(--color-ink);
-}
-
-.toon-button:active {
-  transform: translateY(6px);
-  box-shadow: 0 0 0 var(--color-ink);
-}
-
-@utility toon-button-shell {
-  @apply relative inline-flex;
-}
-
-.toon-button-shell--raised {
-  isolation: isolate;
-  border-radius: 1rem;
-}
-
-.toon-button-shell--raised::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  background: var(--color-ink);
-  transform: translate(6px, 6px);
-}
-
-.toon-button-control {
-  @apply relative inline-flex items-center justify-center gap-2 font-black transition-[transform,filter] duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow focus-visible:ring-offset-2;
-}
-
-.toon-button-control--primary,
-.toon-button-control--secondary {
-  @apply border-[3px] px-5 py-3;
-  border-color: var(--color-ink);
-  border-radius: 1rem;
-}
-
-.toon-button-control--primary {
-  background-color: var(--color-purple);
-  color: var(--color-surface);
-}
-
-.toon-button-control--secondary {
-  background-color: var(--color-yellow);
-  color: var(--color-ink);
-}
-
-.toon-button-control--primary:hover,
-.toon-button-control--secondary:hover {
-  filter: brightness(1.12);
-}
-
-.toon-button-control--primary:active,
-.toon-button-control--secondary:active {
-  transform: translate(4px, 4px);
-  filter: brightness(0.9);
-}
-
-.toon-button-control--outline {
-  @apply rounded-lg border-2 border-surface p-2 text-surface;
-}
-
-.toon-button-control--ghost {
-  @apply flex items-center gap-2 text-sm font-black underline decoration-2 underline-offset-4;
-}
-
-.toon-button-control--filter {
-  @apply flex min-w-max items-center gap-2 rounded-md border-2 border-ink bg-surface px-3 py-2 text-sm font-black;
-}
-
-.toon-button-control--filter[aria-pressed="true"] {
-  background-color: var(--color-purple);
-  color: var(--color-surface);
-}
-
-.toon-button-control--vote {
-  @apply flex items-center gap-1 text-sm font-black;
-}
-
 @utility toon-input {
   @apply w-full rounded-2xl border-[3px] bg-surface px-4 py-3 outline-none transition-[border-color] duration-150;
   border-color: var(--color-ink);
@@ -315,8 +227,8 @@ nav {
   @apply relative bg-paper;
   clip-path: polygon(
     -5px -5px,
-    calc(100% - 18px) -5px,
-    calc(100% + 5px) 18px,
+    calc(100% - 36px) -5px,
+    calc(100% + 5px) 36px,
     calc(100% + 5px) calc(100% + 5px),
     -5px calc(100% + 5px)
   );

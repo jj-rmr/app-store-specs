@@ -3,10 +3,13 @@ import { GoogleOAuthProvider, useGoogleLogin, type TokenResponse } from "@react-
 import { ArrowLeft, ArrowRight, Eye, EyeSlash, LockKey, Sparkle } from "@phosphor-icons/react";
 import { useAuth } from "../auth/AuthProvider";
 import Brand from "../components/Brand";
+import { Button } from "../components/Button";
 import { getProfileRepo } from "../data/factory";
+import { getSupabase } from "../data/supabase/client";
 import type { GoogleAccount } from "../data/repositories";
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+const isSupabaseMode = (import.meta.env.VITE_DATA_SOURCE as string | undefined) === "supabase";
 
 function GoogleMark() {
   return (
@@ -98,6 +101,22 @@ export default function Login() {
     if (await signin(email, password)) window.history.replaceState({}, "", "/store");
     else setError("That email and password don't match.");
   };
+  // Supabase mode uses the OAuth redirect flow (Supabase Auth handles the
+  // session); local mode uses the GIS popup and signs in with the profile.
+  const supabaseGoogle = async () => {
+    setGoogleBusy(true);
+    setGoogleError(null);
+    try {
+      const { error } = await getSupabase().auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/store` },
+      });
+      if (error) throw error;
+    } catch (e) {
+      setGoogleError(e instanceof Error ? e.message : "Google sign-in failed. Try again.");
+      setGoogleBusy(false);
+    }
+  };
   const onGoogleAccount = async (account: GoogleAccount) => {
     setGoogleBusy(true);
     setGoogleError(null);
@@ -185,16 +204,36 @@ export default function Login() {
                 {error}
               </p>
             )}
-            <button className="toon-button w-full rounded-2xl bg-purple text-surface">
+            <Button type="submit" fullWidth>
               Continue <ArrowRight size={20} weight="bold" />
-            </button>
+            </Button>
           </form>
           <div className="my-6 flex items-center gap-3 text-xs font-black uppercase text-muted">
             <span className="h-0.5 flex-1 rounded bg-divider" aria-hidden="true" />
             or continue with
             <span className="h-0.5 flex-1 rounded bg-divider" aria-hidden="true" />
           </div>
-          {googleClientId ? (
+          {isSupabaseMode ? (
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => void supabaseGoogle()}
+                disabled={googleBusy}
+                className="flex w-full items-center justify-center gap-3 rounded-xl bg-[#1e1e1e] px-5 py-3.5 text-base font-semibold text-white transition hover:bg-black disabled:opacity-60"
+              >
+                <GoogleMark />
+                {googleBusy ? "Connecting…" : "Continue with Google"}
+              </button>
+              {googleError && (
+                <p
+                  role="alert"
+                  className="w-full rounded-xl border-[3px] border-ink bg-pink/50 px-4 py-3 text-sm font-bold"
+                >
+                  {googleError}
+                </p>
+              )}
+            </div>
+          ) : googleClientId ? (
             <div className="flex flex-col gap-2">
               <GoogleOAuthProvider clientId={googleClientId}>
                 <GoogleContinueButton

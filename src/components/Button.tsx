@@ -1,32 +1,194 @@
-import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
+import type {
+  AnchorHTMLAttributes,
+  ButtonHTMLAttributes,
+  LabelHTMLAttributes,
+  ReactNode,
+} from "react";
 
 export type ButtonVariant =
   | "primary"
   | "secondary"
+  | "surface"
+  | "danger"
   | "outline"
+  | "outline-flat"
   | "ghost"
   | "filter"
   | "vote";
 
+type ButtonSize = "default" | "small" | "compact";
+
 type ButtonStyleProps = {
   variant?: ButtonVariant;
+  size?: ButtonSize;
   className?: string;
   fullWidth?: boolean;
   children?: ReactNode;
 };
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & ButtonStyleProps;
-type ButtonLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> &
-  ButtonStyleProps & { href: string };
 
-function wrapperClassName(
+type ButtonLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> &
+  ButtonStyleProps & {
+    href: string;
+  };
+
+type ButtonLabelProps = LabelHTMLAttributes<HTMLLabelElement> & ButtonStyleProps;
+
+const commonClasses =
+  "inline-flex items-center justify-center gap-2 font-black focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow focus-visible:ring-offset-2";
+
+const variantClasses: Record<ButtonVariant, string> = {
+  primary: "rounded-2xl border-[3px] border-ink bg-purple text-surface",
+  secondary: "rounded-2xl border-[3px] border-ink bg-yellow text-ink",
+  surface: "rounded-2xl border-[3px] border-ink bg-surface text-inherit",
+  danger: "rounded-2xl border-[3px] border-ink bg-alert text-surface",
+  outline:
+    "rounded-lg border-2 border-ink bg-transparent px-3 py-2 text-ink transition-colors hover:bg-cream disabled:cursor-not-allowed disabled:opacity-60",
+  "outline-flat":
+    "min-w-max rounded-md border-2 border-ink bg-transparent text-ink transition-colors aria-pressed:bg-purple aria-pressed:text-surface aria-pressed:hover:bg-purple hover:bg-yellow disabled:cursor-not-allowed disabled:opacity-60",
+  ghost:
+    "text-sm underline decoration-2 underline-offset-4 transition-colors hover:text-purple disabled:cursor-not-allowed disabled:opacity-60",
+  filter:
+    "min-w-max rounded-md border-2 border-ink bg-transparent text-ink transition-colors aria-pressed:bg-purple aria-pressed:text-surface aria-pressed:hover:bg-purple hover:bg-cream disabled:cursor-not-allowed disabled:opacity-60",
+  vote: "gap-1 transition-colors hover:text-purple aria-pressed:text-vote aria-pressed:hover:text-vote disabled:cursor-not-allowed disabled:opacity-60",
+};
+
+const raisedShellClasses = [
+  "group",
+  "relative",
+  "isolate",
+  "inline-flex",
+  "cursor-pointer",
+  "border-0",
+  "bg-transparent",
+  "p-0",
+  "pb-2",
+  "pr-2",
+  "text-left",
+  "rounded-2xl",
+
+  "focus-visible:outline-none",
+  "focus-visible:ring-4",
+  "focus-visible:ring-yellow",
+  "focus-visible:ring-offset-2",
+
+  "disabled:cursor-not-allowed",
+].join(" ");
+
+// Fixed at the flush position. Never moves, so it stays visually in place.
+const raisedSideClasses = [
+  "absolute",
+  "z-0",
+
+  // bottom-right edge is fixed; this is what stays "in place"
+  "right-0",
+  "bottom-0",
+
+  // top-left edge tracks the face, so the shadow is always face + the raise offset
+  "top-1",
+  "left-1",
+
+  "rounded-[20px]",
+  "border-[3px]",
+  "border-ink",
+  "bg-ink",
+
+  "transition-[top,left,border-radius]",
+  "duration-100",
+  "ease-out",
+
+  // hover: face at (0,0), shadow grows to full shell size (8px extra on right and bottom)
+  "group-hover:top-0",
+  "group-hover:left-0",
+  "group-hover:rounded-tr-3xl",
+  "group-hover:rounded-bl-3xl",
+
+  // active: face flush at (8,8), shadow shrinks to exactly the face and is hidden
+  "group-active:top-2",
+  "group-active:left-2",
+
+  // disabled: same as flush
+  "group-disabled:top-2",
+  "group-disabled:left-2",
+].join(" ");
+
+// The face sits at the fully raised position (0,0) in flow, then is pushed
+// down-right toward the shadow: 4px at rest, 0 on hover, 8px (flush) on active.
+const raisedFaceClasses = [
+  "relative",
+  "z-10",
+  "inline-flex",
+  "items-center",
+  "justify-center",
+  "gap-2",
+  "rounded-2xl",
+  "border-[3px]",
+  "border-ink",
+  "font-black",
+
+  // rest: slightly raised
+  "translate-x-1",
+  "translate-y-1",
+
+  "transition-[transform,translate,filter]",
+  "duration-100",
+  "ease-out",
+
+  // hover: fully raised (up-left)
+  "group-hover:translate-x-0",
+  "group-hover:translate-y-0",
+
+  // active: flush with the shadow
+  "group-active:translate-x-2",
+  "group-active:translate-y-2",
+  "group-active:brightness-90",
+
+  // disabled: flush, no hover/active effects
+  "group-disabled:translate-x-2",
+  "group-disabled:translate-y-2",
+  "group-disabled:brightness-100",
+].join(" ");
+
+const raisedVariants = new Set<ButtonVariant>(["primary", "secondary", "surface", "danger"]);
+
+const sizeClasses: Record<ButtonSize, string> = {
+  default: "px-5 py-3",
+  small: "px-4 py-2 text-sm",
+  compact: "px-3 py-1 text-xs",
+};
+
+const filterSizeClasses: Record<ButtonSize, string> = {
+  default: "px-3 py-2 text-sm",
+  small: "px-3 py-1.5 text-sm",
+  compact: "px-2 py-1 text-xs",
+};
+
+function buttonClassName(
   variant: ButtonVariant,
+  size: ButtonSize,
   className: string | undefined,
   fullWidth: boolean,
 ) {
+  if (raisedVariants.has(variant)) {
+    return [raisedShellClasses, fullWidth ? "w-full" : "", className ?? ""]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  const sizeClass =
+    variant === "filter" || variant === "outline-flat"
+      ? filterSizeClasses[size]
+      : variant === "vote"
+        ? size === "compact"
+          ? "text-xs"
+          : "text-sm"
+        : "";
+
   return [
-    "toon-button-shell",
-    variant === "primary" || variant === "secondary" ? "toon-button-shell--raised" : "",
+    commonClasses,
+    variantClasses[variant],
+    sizeClass,
     fullWidth ? "w-full" : "",
     className ?? "",
   ]
@@ -34,18 +196,34 @@ function wrapperClassName(
     .join(" ");
 }
 
-function controlClassName(variant: ButtonVariant, fullWidth: boolean) {
-  return [
-    "toon-button-control",
-    `toon-button-control--${variant}`,
-    fullWidth ? "w-full" : "",
-  ]
+function buttonFaceClassName(variant: ButtonVariant, size: ButtonSize, fullWidth: boolean) {
+  return [raisedFaceClasses, variantClasses[variant], sizeClasses[size], fullWidth ? "w-full" : ""]
     .filter(Boolean)
     .join(" ");
 }
 
+function buttonContents(
+  variant: ButtonVariant,
+  size: ButtonSize,
+  fullWidth: boolean,
+  children: ReactNode,
+) {
+  if (!raisedVariants.has(variant)) {
+    return children;
+  }
+
+  return (
+    <>
+      <span className={raisedSideClasses} aria-hidden="true" />
+
+      <span className={buttonFaceClassName(variant, size, fullWidth)}>{children}</span>
+    </>
+  );
+}
+
 export function Button({
   variant = "primary",
+  size = "default",
   className,
   fullWidth = false,
   children,
@@ -53,16 +231,15 @@ export function Button({
   ...props
 }: ButtonProps) {
   return (
-    <span className={wrapperClassName(variant, className, fullWidth)}>
-      <button {...props} type={type} className={controlClassName(variant, fullWidth)}>
-        {children}
-      </button>
-    </span>
+    <button {...props} type={type} className={buttonClassName(variant, size, className, fullWidth)}>
+      {buttonContents(variant, size, fullWidth, children)}
+    </button>
   );
 }
 
 export function ButtonLink({
   variant = "primary",
+  size = "default",
   className,
   fullWidth = false,
   children,
@@ -70,14 +247,23 @@ export function ButtonLink({
   ...props
 }: ButtonLinkProps) {
   return (
-    <span className={wrapperClassName(variant, className, fullWidth)}>
-      <a
-        {...props}
-        href={href}
-        className={controlClassName(variant, fullWidth)}
-      >
-        {children}
-      </a>
-    </span>
+    <a {...props} href={href} className={buttonClassName(variant, size, className, fullWidth)}>
+      {buttonContents(variant, size, fullWidth, children)}
+    </a>
+  );
+}
+
+export function ButtonLabel({
+  variant = "primary",
+  size = "default",
+  className,
+  fullWidth = false,
+  children,
+  ...props
+}: ButtonLabelProps) {
+  return (
+    <label {...props} className={buttonClassName(variant, size, className, fullWidth)}>
+      {buttonContents(variant, size, fullWidth, children)}
+    </label>
   );
 }
