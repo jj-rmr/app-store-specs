@@ -10,11 +10,11 @@ import { ButtonLink } from "../components/Button";
 import Brand from "../components/Brand";
 import Footer from "../components/Footer";
 
-export default function Home() {
+export default function Landing() {
   return (
-    <div className="min-h-screen px-5 py-6 lg:px-10">
+    <div className="min-h-screen px-5 py-6 pb-0 lg:px-10">
       <nav className="mx-auto flex max-w-7xl items-center justify-between">
-        <a href="/" aria-label="CodeCanvas home">
+        <a href="/landing" aria-label="CodeCanvas landing page">
           <Brand />
         </a>
         <span className="rounded-full border-2 border-ink bg-surface px-3 py-1 text-xs font-black">
