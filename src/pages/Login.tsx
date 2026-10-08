@@ -89,18 +89,34 @@ function GoogleContinueButton({
 }
 
 export default function Login() {
-  const { signin, signinWithGoogleAccount } = useAuth();
-  const [email, setEmail] = useState("student@example.com");
-  const [password, setPassword] = useState("Password123");
+  const { signin, signup, signinWithGoogleAccount } = useAuth();
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [googleBusy, setGoogleBusy] = useState(false);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     setError(null);
-    if (await signin(email, password)) window.history.replaceState({}, "", "/store");
-    else setError("That email and password don't match.");
+    setBusy(true);
+    try {
+      if (mode === "signup") {
+        const failure = await signup(name, email, password);
+        if (failure) setError(failure);
+        else window.history.replaceState({}, "", "/store");
+      } else if (await signin(email, password)) {
+        window.history.replaceState({}, "", "/store");
+      } else {
+        setError("That email and password don't match.");
+      }
+    } finally {
+      setBusy(false);
+    }
   };
   // Supabase mode uses the OAuth redirect flow (Supabase Auth handles the
   // session); local mode uses the GIS popup and signs in with the profile.
@@ -155,17 +171,51 @@ export default function Login() {
         </div>
         <div className="toon-card paper-note rounded-lg bg-surface p-7 pt-10 sm:p-9 sm:pt-11">
           <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-2xl font-black">Sign in</h2>
+            <h2 className="text-2xl font-black">
+              {mode === "signup" ? "Create account" : "Sign in"}
+            </h2>
             <LockKey size={25} weight="duotone" className="text-purple" />
           </div>
+          <div className="mb-5 flex gap-2" role="tablist" aria-label="Sign in or create account">
+            {(["signin", "signup"] as const).map((tab) => (
+              <button
+                key={tab}
+                role="tab"
+                aria-selected={mode === tab}
+                onClick={() => {
+                  setMode(tab);
+                  setError(null);
+                }}
+                className={`flex-1 rounded-md border-2 border-ink px-3 py-2 text-sm font-black ${mode === tab ? "bg-purple text-surface" : "bg-surface"}`}
+              >
+                {tab === "signin" ? "Sign in" : "Create account"}
+              </button>
+            ))}
+          </div>
           <form onSubmit={submit} className="space-y-5">
+            {mode === "signup" && (
+              <label className="block">
+                <span className="toon-label">Display name</span>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  type="text"
+                  autoComplete="nickname"
+                  maxLength={40}
+                  placeholder="What should we call you?"
+                  className="toon-input"
+                  required
+                />
+              </label>
+            )}
             <label className="block">
               <span className="toon-label">Email address</span>
               <Input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 type="email"
-                autoComplete="email"
+                autoComplete="off"
+                className="toon-input"
                 required
               />
             </label>
@@ -176,9 +226,10 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  placeholder="Enter your password"
-                  className="pr-12"
+                  autoComplete="new-password"
+                  minLength={mode === "signup" ? 6 : undefined}
+                  placeholder={mode === "signup" ? "At least 6 characters" : "Enter your password"}
+                  className="toon-input pr-12"
                   required
                 />
                 <button
@@ -205,7 +256,8 @@ export default function Login() {
               </p>
             )}
             <Button type="submit" fullWidth>
-              Continue <ArrowRight size={20} weight="bold" />
+              {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Continue"}{" "}
+              <ArrowRight size={20} weight="bold" />
             </Button>
           </form>
           <div className="my-6 flex items-center gap-3 text-xs font-black uppercase text-muted">
@@ -262,9 +314,6 @@ export default function Login() {
               then restart the dev server. See .env.example.
             </div>
           )}
-          <div className="mt-7 rounded-2xl border-2 border-dashed border-ink bg-cream p-4 text-sm leading-6">
-            <span className="font-black">Demo account:</span> student@example.com · Password123
-          </div>
         </div>
       </div>
     </div>

@@ -7,9 +7,11 @@ import type {
   Comment,
   ListAppsParams,
   Milestone,
+  Profile,
   User,
 } from "../types";
 import { seedApps, seedBuilders, seedComments, seedMilestones } from "./seed";
+import { getLocalProfilesByIds } from "./localProfiles";
 
 const APPS_KEY = "cc.apps.v1";
 const VOTES_KEY = "cc.votes.v1";
@@ -344,6 +346,15 @@ export function createLocalAppRepo(): AppRepo {
       return { ...updated, viewerHasVoted: !hasVoted };
     },
 
+    async listVoters(appId: string): Promise<Profile[]> {
+      await delay(80);
+      const votes = loadVotes();
+      const voterIds = Object.entries(votes)
+        .filter(([, ids]) => ids.includes(appId))
+        .map(([userId]) => userId);
+      return getLocalProfilesByIds(voterIds);
+    },
+
     async listBuilders(): Promise<Builder[]> {
       await delay(60);
       return [...seedBuilders];
@@ -449,6 +460,36 @@ export function createLocalAppRepo(): AppRepo {
       return { ...updated, viewerHasCheered: cheered.has(userId) };
     },
 
+    async deleteComment(
+      appId: string,
+      commentId: string,
+      requester: User,
+    ): Promise<void> {
+      await delay(100);
+      const store = loadComments();
+      const thread = (store[appId] ?? []).map(normalizeComment);
+      const target = thread.find((c) => c.id === commentId);
+      if (!target) throw new NotFoundError("Comment not found.");
+      if (target.authorId !== requester.id)
+        throw new Error("You can only delete your own comments.");
+      // Remove the comment plus every nested reply beneath it.
+      const doomed = new Set<string>([commentId]);
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const c of thread) {
+          if (c.parentId && doomed.has(c.parentId) && !doomed.has(c.id)) {
+            doomed.add(c.id);
+            grew = true;
+          }
+        }
+      }
+      const next = thread.filter((c) => !doomed.has(c.id));
+      saveComments({ ...store, [appId]: next });
+      const apps = loadApps();
+      saveApps(apps.map((a) => (a.id === appId ? { ...a, comments: next.length } : a)));
+    },
+
     async toggleCommentLike(appId: string, commentId: string, userId: string): Promise<Comment> {
       await delay(80);
       const store = loadComments();
@@ -472,4 +513,5 @@ export function resetLocalData(): void {
   localStorage.removeItem(APPS_KEY);
   localStorage.removeItem(VOTES_KEY);
   localStorage.removeItem(COMMENTS_KEY);
+  localStorage.removeItem(MILESTONES_KEY);
 }

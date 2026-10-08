@@ -11,5 +11,5 @@ Notes:
 
 - `.env` is gitignored and never pushed. Only `.env.example` is committed.
 - Everyone gets a fresh local database (browser localStorage). Seeds load automatically.
-- Demo login works without Google: `student@example.com` / `Password123`.
+- Sign in with a Google account. There is no demo account.
 - Never commit `dist/` — it is build output.

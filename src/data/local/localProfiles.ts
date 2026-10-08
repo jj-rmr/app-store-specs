@@ -1,5 +1,5 @@
 import { NotFoundError, type ProfileRepo } from "../repositories";
-import type { Profile, User } from "../types";
+import { PROFILE_THEMES, SITE_PALETTE_IDS, type Profile, type User } from "../types";
 import { claimDuplicateProfile } from "./claim";
 import { seedProfiles } from "./seed";
 
@@ -52,6 +52,15 @@ function loadProfiles(): Profile[] {
 
 function saveProfiles(profiles: Profile[]): void {
   localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
+}
+
+/** Profiles for the given user ids (missing ids skipped), alphabetical by name. */
+export function getLocalProfilesByIds(ids: string[]): Profile[] {
+  if (ids.length === 0) return [];
+  const wanted = new Set(ids);
+  return loadProfiles()
+    .filter((p) => wanted.has(p.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function isValidImageUrl(value: string): boolean {
@@ -122,7 +131,8 @@ export function createLocalProfileRepo(): ProfileRepo {
       const role = patch.role?.trim() ?? target.role;
       const bio = patch.bio?.trim() ?? target.bio;
       const color = patch.color?.trim() ?? target.color;
-      const imageUrl = patch.imageUrl !== undefined ? patch.imageUrl.trim() : (target.imageUrl ?? "");
+      const imageUrl =
+        patch.imageUrl !== undefined ? patch.imageUrl.trim() : (target.imageUrl ?? "");
       const name = patch.name?.trim() || target.name;
       if (!name) throw new Error("Name is required.");
       if (name.length > 40) throw new Error("Keep your name under 40 characters.");
@@ -135,7 +145,25 @@ export function createLocalProfileRepo(): ProfileRepo {
       if (bio.length > 280) throw new Error("Keep bio under 280 characters.");
       if (!ALLOWED_COLORS.has(color)) throw new Error("Pick a valid avatar color.");
       if (!isValidImageUrl(imageUrl)) throw new Error("Image must be a valid http(s) URL.");
-      const updated: Profile = { ...target, name, role, bio, color, imageUrl: imageUrl || undefined };
+      const theme = patch.theme !== undefined ? patch.theme.trim() || undefined : target.theme;
+      if (theme !== undefined && !(PROFILE_THEMES as readonly string[]).includes(theme)) {
+        throw new Error("Pick a valid profile theme.");
+      }
+      const palette =
+        patch.palette !== undefined ? patch.palette.trim() || undefined : target.palette;
+      if (palette !== undefined && !(SITE_PALETTE_IDS as readonly string[]).includes(palette)) {
+        throw new Error("Pick a valid website palette.");
+      }
+      const updated: Profile = {
+        ...target,
+        name,
+        role,
+        bio,
+        color,
+        imageUrl: imageUrl || undefined,
+        theme,
+        palette,
+      };
       saveProfiles(profiles.map((p) => (p.id === id ? updated : p)));
       return updated;
     },

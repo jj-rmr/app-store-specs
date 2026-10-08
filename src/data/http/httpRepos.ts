@@ -61,6 +61,15 @@ export function createHttpAuthRepo(): AuthRepo {
       }
     },
 
+    async signup(name: string, email: string, password: string): Promise<User> {
+      const { user, token } = await api<{
+        user: { id: string; email: string; name: string };
+        token: string;
+      }>("/auth/signup", { method: "POST", body: JSON.stringify({ name, email, password }) });
+      setApiToken(token);
+      return toUser(user);
+    },
+
     // The server MUST verify the Google access token with Google (userinfo)
     // and match verified email -> account itself. Never trust bare claims.
     async signinWithGoogleAccount(account: GoogleAccount): Promise<GoogleSignInResult> {
@@ -117,7 +126,8 @@ export function createHttpAppRepo(): AppRepo {
         const { app } = await api<{ app: AppRow }>(`/apps/${encodeURIComponent(id)}`);
         return toApp(app);
       } catch (e) {
-        if (e instanceof Error && e.message.includes("404")) throw new NotFoundError("Project not found.");
+        if (e instanceof Error && e.message.includes("404"))
+          throw new NotFoundError("Project not found.");
         throw e;
       }
     },
@@ -167,11 +177,23 @@ export function createHttpAppRepo(): AppRepo {
       return toApp(app);
     },
 
+    async listVoters(appId: string) {
+      const { voters } = await api<{ voters: ProfileRow[] }>(
+        `/apps/${encodeURIComponent(appId)}/voters`,
+      );
+      return voters.map(toProfile).sort((a, b) => a.name.localeCompare(b.name));
+    },
+
     async listBuilders() {
       // Served from /profiles on the server; builders are derived client-side.
       const { profiles } = await api<{ profiles: ProfileRow[] }>("/profiles");
       const seen = new Map(profiles.map((p) => [p.name, p]));
-      return [...seen.values()].map((p) => ({ name: p.name, role: p.role, apps: 0, color: p.color }));
+      return [...seen.values()].map((p) => ({
+        name: p.name,
+        role: p.role,
+        apps: 0,
+        color: p.color,
+      }));
     },
 
     async listComments(appId: string) {
@@ -187,6 +209,12 @@ export function createHttpAppRepo(): AppRepo {
         { method: "POST", body: JSON.stringify({ body, parentId }) },
       );
       return toComment(comment);
+    },
+
+    async deleteComment(appId: string, commentId: string, _author: User): Promise<void> {
+      await api(`/apps/${encodeURIComponent(appId)}/comments/${encodeURIComponent(commentId)}`, {
+        method: "DELETE",
+      });
     },
 
     async toggleCommentLike(appId: string, commentId: string, _userId: string) {
@@ -234,7 +262,8 @@ export function createHttpProfileRepo(): ProfileRepo {
         );
         return toProfile(profile);
       } catch (e) {
-        if (e instanceof Error && e.message.includes("404")) throw new NotFoundError("Developer not found.");
+        if (e instanceof Error && e.message.includes("404"))
+          throw new NotFoundError("Developer not found.");
         throw e;
       }
     },
@@ -270,6 +299,8 @@ export function createHttpProfileRepo(): ProfileRepo {
             color: patch.color,
             image_url: patch.imageUrl,
             name: patch.name,
+            theme: patch.theme !== undefined ? patch.theme.trim() || null : undefined,
+            palette: patch.palette !== undefined ? patch.palette.trim() || null : undefined,
           }),
         },
       );

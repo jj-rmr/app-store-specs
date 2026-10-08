@@ -15,11 +15,23 @@ export const APP_INFO = {
   features: [
     {
       title: "Discover projects",
-      body: "Browse student-built software by name, category, or developer — and open live demos straight from each card.",
+      body: "Browse student-built software by name, category, or developer — tap anywhere on a card to open it, and read upload stamps showing how fresh each project is.",
     },
     {
       title: "Feedback threads",
-      body: "Every project has a discussion space with nested replies and likes, so useful reviews don't get lost.",
+      body: "Every project has a discussion space with nested replies and likes. Authors can delete their own comments and replies from the ⋯ menu.",
+    },
+    {
+      title: "Notifications inbox",
+      body: "The bell collects comments, replies, upvotes, collaborator tags, new projects, and community updates — newest first, with sound chimes and delete-all.",
+    },
+    {
+      title: "Voters viewer",
+      body: "Tap Voters under any project's vote buttons to see exactly who upvoted, with avatars that open each voter's profile.",
+    },
+    {
+      title: "Collaborators",
+      body: "Tag developers on your project and they get notified — on the card, the project page, and in their inbox.",
     },
     {
       title: "Milestones wall",
@@ -31,11 +43,23 @@ export const APP_INFO = {
     },
     {
       title: "Docs import",
-      body: "Pull README files straight from a project's GitHub repository instead of pasting them by hand.",
+      body: "Pull README files straight from a project's GitHub repository, then read long docs page by page with See more / See less.",
     },
     {
       title: "Developer profiles",
-      body: "Each builder gets a profile with their projects, collaborators, and community feedback.",
+      body: "Each builder gets a profile with their projects and feedback — plus an avatar color and a theme palette visitors see on the page.",
+    },
+    {
+      title: "Sound effects",
+      body: "Votes land and notifications arrive with playful chimes, wired to fire only on real activity.",
+    },
+    {
+      title: "Account safety",
+      body: "Signing out always asks for confirmation, and profile renames survive logout and login.",
+    },
+    {
+      title: "Google sign-in",
+      body: "Join with email and password or continue with your Google account — duplicate profiles can be claimed and merged.",
     },
   ],
 };

@@ -13,7 +13,14 @@ import {
   type ProfilePatch,
   type ProfileRepo,
 } from "../repositories";
-import type { AppInput, AppUpdate, ListAppsParams, User } from "../types";
+import {
+  PROFILE_THEMES,
+  SITE_PALETTE_IDS,
+  type AppInput,
+  type AppUpdate,
+  type ListAppsParams,
+  type User,
+} from "../types";
 import { getSupabase } from "./client";
 import {
   toApp,
@@ -43,8 +50,7 @@ async function authUid(): Promise<string | null> {
 
 function sessionUser(id: string, email: string | undefined, name: unknown): User {
   const cleanEmail = email ?? "";
-  const display =
-    (typeof name === "string" && name.trim()) || cleanEmail.split("@")[0] || "Member";
+  const display = (typeof name === "string" && name.trim()) || cleanEmail.split("@")[0] || "Member";
   return { id, email: cleanEmail, name: display.slice(0, 40) };
 }
 
@@ -63,6 +69,22 @@ export function createSupabaseAuthRepo(): AuthRepo {
       const { data, error } = await getSupabase().auth.signInWithPassword({ email, password });
       if (error || !data.user) throw new AuthError();
       return sessionUser(data.user.id, data.user.email, data.user.user_metadata?.["name"]);
+    },
+
+    async signup(name: string, email: string, password: string): Promise<User> {
+      const cleanName = name.trim().slice(0, 40);
+      if (!cleanName) throw new Error("Name is required.");
+      const { data, error } = await getSupabase().auth.signUp({
+        email: email.trim(),
+        password,
+        options: { data: { name: cleanName } },
+      });
+      if (error) throw new Error(error.message);
+      // Email confirmation on: account exists but no session yet.
+      if (!data.session || !data.user) {
+        throw new AuthError("Account created — check your email to confirm, then sign in.");
+      }
+      return sessionUser(data.user.id, data.user.email, cleanName);
     },
 
     // Google uses the OAuth redirect flow in Supabase mode (see Login).
@@ -92,7 +114,13 @@ export function createSupabaseAuthRepo(): AuthRepo {
         .update({ name: clean })
         .eq("id", user.id);
       if (profileError) throw new Error(profileError.message);
-      await supabase.auth.updateUser({ data: { name: clean } });
+      // Fail loudly here: a silent metadata failure used to report success
+      // while leaving stale auth metadata behind, which then clobbered the
+      // renamed profile row on the next login (see ensureUserProfile).
+      const { error: metaError } = await supabase.auth.updateUser({
+        data: { name: clean },
+      });
+      if (metaError) throw new Error(metaError.message);
       return sessionUser(user.id, user.email, clean);
     },
   };
@@ -213,11 +241,13 @@ export function createSupabaseAppRepo(): AppRepo {
       if (description.length > 280) throw new Error("Keep the description under 280 characters.");
       const url = input.url?.trim();
       const repoUrl = input.repoUrl?.trim();
-      if (url && !/^https?:\/\//i.test(url)) throw new Error("App link must start with http(s)://.");
+      if (url && !/^https?:\/\//i.test(url))
+        throw new Error("App link must start with http(s)://.");
       if (repoUrl && !/^https?:\/\//i.test(repoUrl))
         throw new Error("Repo link must start with http(s)://.");
       const docs = input.docs?.trim();
-      if (docs && docs.length > 50000) throw new Error("Keep documentation under 50000 characters.");
+      if (docs && docs.length > 50000)
+        throw new Error("Keep documentation under 50000 characters.");
       const screenshots = (input.screenshots ?? []).filter(Boolean).slice(0, 3);
       for (const src of screenshots) {
         if (src.length > 500_000) throw new Error("Images are too large. Pick smaller files.");
@@ -270,7 +300,8 @@ export function createSupabaseAppRepo(): AppRepo {
       if (title.length > 80) throw new Error("Keep the project name under 80 characters.");
       if (description.length > 280) throw new Error("Keep the description under 280 characters.");
       if (docs.length > 50000) throw new Error("Keep documentation under 50000 characters.");
-      if (url && !/^https?:\/\//i.test(url)) throw new Error("App link must start with http(s)://.");
+      if (url && !/^https?:\/\//i.test(url))
+        throw new Error("App link must start with http(s)://.");
       if (repoUrl && !/^https?:\/\//i.test(repoUrl))
         throw new Error("Repo link must start with http(s)://.");
       const screenshots =
@@ -316,37 +347,50 @@ export function createSupabaseAppRepo(): AppRepo {
         ? row.creator_id === author.id
         : row.creator.toLowerCase() === author.name.toLowerCase();
       if (!owned) throw new Error("You can only delete your own projects.");
-      // Wall threads (ms:) and orphan likes live outside the FK, clean them explicitly.
-      await supabase.from("comments").delete().eq("app_id", appId);
-      const { error } = await supabase.from("apps").delete().eq("id", appId);
+      // Counter/row cleanup runs inside the function (RLS forbids direct edits).
+      const { error } = await supabase.rpc("delete_project", { p_app_id: appId });
       if (error) throw new Error(error.message);
     },
 
-    async toggleVote(appId: string, _userId: string) {
-      const uid = (await authUid()) ?? _userId;
-      if (!uid) throw new Error("Sign in to vote.");
+    async toggleVote(appId: string, userId: string) {
+      const { data, error } = await getSupabase().rpc("toggle_app_vote", { p_app_id: appId });
+      if (error) throw new Error(error.message);
+      const payload = data as { row: Record<string, unknown>; liked: boolean };
+      if (!payload?.row) throw new NotFoundError("Project not found.");
+      const app = toApp(toAppRow(payload.row));
+      const refreshed = await this.getApp(appId, userId);
+      return { ...app, comments: refreshed.comments, viewerHasVoted: Boolean(payload.liked) };
+    },
+
+    async listVoters(appId: string) {
       const supabase = getSupabase();
-      const { data: existing } = await supabase
+      const { data: votes, error: votesError } = await supabase
         .from("app_votes")
-        .select("app_id")
-        .eq("app_id", appId)
-        .eq("user_id", uid)
-        .maybeSingle();
-      const { data: app, error: appError } = await supabase
-        .from("apps")
-        .select("votes")
-        .eq("id", appId)
-        .single();
-      if (appError || !app) throw new NotFoundError("Project not found.");
-      const votes = Number((app as { votes: number }).votes ?? 0);
-      if (existing) {
-        await supabase.from("app_votes").delete().eq("app_id", appId).eq("user_id", uid);
-        await supabase.from("apps").update({ votes: Math.max(0, votes - 1) }).eq("id", appId);
-      } else {
-        await supabase.from("app_votes").insert({ app_id: appId, user_id: uid });
-        await supabase.from("apps").update({ votes: votes + 1 }).eq("id", appId);
-      }
-      return this.getApp(appId, uid);
+        .select("user_id")
+        .eq("app_id", appId);
+      if (votesError) throw new Error(votesError.message);
+      const ids = [...new Set(((votes ?? []) as { user_id: string }[]).map((v) => v.user_id))];
+      if (ids.length === 0) return [];
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("*")
+        .in("id", ids);
+      if (profilesError) throw new Error(profilesError.message);
+      return ((profiles ?? []) as Record<string, unknown>[])
+        .map((r) =>
+          toProfile({
+            id: String(r["id"]),
+            name: String(r["name"] ?? ""),
+            role: String(r["role"] ?? ""),
+            bio: String(r["bio"] ?? ""),
+            color: String(r["color"] ?? "sky"),
+            image_url: (r["image_url"] as string | null) ?? null,
+            theme: (r["theme"] as string | null) ?? null,
+            palette: (r["palette"] as string | null) ?? null,
+            created_at: String(r["created_at"] ?? new Date().toISOString()),
+          }),
+        )
+        .sort((a, b) => a.name.localeCompare(b.name));
     },
 
     async listBuilders() {
@@ -418,37 +462,31 @@ export function createSupabaseAppRepo(): AppRepo {
       return { ...toComment(toCommentRow(data as Record<string, unknown>)), viewerHasLiked: false };
     },
 
-    async toggleCommentLike(appId: string, commentId: string, _userId: string) {
-      const uid = (await authUid()) ?? _userId;
-      if (!uid) throw new Error("Sign in to like.");
+    async deleteComment(appId: string, commentId: string, author: User): Promise<void> {
       const supabase = getSupabase();
-      const { data: existing } = await supabase
-        .from("comment_likes")
-        .select("comment_id")
-        .eq("comment_id", commentId)
-        .eq("user_id", uid)
-        .maybeSingle();
-      const { data: comment, error: commentError } = await supabase
+      const { data: existing, error: fetchError } = await supabase
         .from("comments")
-        .select("likes")
+        .select("id,app_id,author_id")
         .eq("id", commentId)
         .single();
-      if (commentError || !comment) throw new NotFoundError("Comment not found.");
-      const likes = Number((comment as { likes: number }).likes ?? 0);
-      if (existing) {
-        await supabase.from("comment_likes").delete().eq("comment_id", commentId).eq("user_id", uid);
-        await supabase
-          .from("comments")
-          .update({ likes: Math.max(0, likes - 1) })
-          .eq("id", commentId);
-      } else {
-        await supabase.from("comment_likes").insert({ comment_id: commentId, user_id: uid });
-        await supabase.from("comments").update({ likes: likes + 1 }).eq("id", commentId);
-      }
-      const refreshed = await this.listComments(appId, uid);
-      const updated = refreshed.find((c) => c.id === commentId);
-      if (!updated) throw new NotFoundError("Comment not found.");
-      return updated;
+      if (fetchError || !existing) throw new NotFoundError("Comment not found.");
+      const row = existing as { app_id: string; author_id: string };
+      if (row.app_id !== appId) throw new Error("That comment belongs to another thread.");
+      if (row.author_id !== author.id) throw new Error("You can only delete your own comments.");
+      // Replies cascade via the parent_id FK; the RLS policy ("own delete
+      // comments", see schema.sql) enforces authorship server-side too.
+      const { error } = await supabase.from("comments").delete().eq("id", commentId);
+      if (error) throw new Error(error.message);
+    },
+
+    async toggleCommentLike(_appId: string, commentId: string, _userId: string) {
+      const { data, error } = await getSupabase().rpc("toggle_comment_like", {
+        p_comment_id: commentId,
+      });
+      if (error) throw new Error(error.message);
+      const payload = data as { row: Record<string, unknown>; liked: boolean };
+      if (!payload?.row) throw new NotFoundError("Comment not found.");
+      return { ...toComment(toCommentRow(payload.row)), viewerHasLiked: payload.liked };
     },
 
     async listMilestones(userId?: string) {
@@ -458,7 +496,9 @@ export function createSupabaseAppRepo(): AppRepo {
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw new Error(error.message);
-      const rows = (data ?? []).map((r) => toMilestone(toMilestoneRow(r as Record<string, unknown>)));
+      const rows = (data ?? []).map((r) =>
+        toMilestone(toMilestoneRow(r as Record<string, unknown>)),
+      );
       const uid = (await authUid()) ?? userId ?? null;
       let cheered = new Set<string>();
       if (uid && rows.length > 0) {
@@ -470,7 +510,9 @@ export function createSupabaseAppRepo(): AppRepo {
             "milestone_id",
             rows.map((r) => r.id),
           );
-        cheered = new Set(((cheers ?? []) as { milestone_id: string }[]).map((c) => c.milestone_id));
+        cheered = new Set(
+          ((cheers ?? []) as { milestone_id: string }[]).map((c) => c.milestone_id),
+        );
       }
       return rows.map((r) => ({ ...r, viewerHasCheered: cheered.has(r.id) }));
     },
@@ -505,44 +547,20 @@ export function createSupabaseAppRepo(): AppRepo {
         .select()
         .single();
       if (error || !data) throw new Error(error?.message ?? "Could not post update.");
-      return { ...toMilestone(toMilestoneRow(data as Record<string, unknown>)), viewerHasCheered: false };
+      return {
+        ...toMilestone(toMilestoneRow(data as Record<string, unknown>)),
+        viewerHasCheered: false,
+      };
     },
 
     async toggleMilestoneCheer(milestoneId: string, _userId: string) {
-      const uid = (await authUid()) ?? _userId;
-      if (!uid) throw new Error("Sign in to cheer.");
-      const supabase = getSupabase();
-      const { data: existing } = await supabase
-        .from("milestone_cheers")
-        .select("milestone_id")
-        .eq("milestone_id", milestoneId)
-        .eq("user_id", uid)
-        .maybeSingle();
-      const { data: milestone, error: milestoneError } = await supabase
-        .from("milestones")
-        .select("cheers")
-        .eq("id", milestoneId)
-        .single();
-      if (milestoneError || !milestone) throw new NotFoundError("Update not found.");
-      const cheers = Number((milestone as { cheers: number }).cheers ?? 0);
-      if (existing) {
-        await supabase
-          .from("milestone_cheers")
-          .delete()
-          .eq("milestone_id", milestoneId)
-          .eq("user_id", uid);
-        await supabase
-          .from("milestones")
-          .update({ cheers: Math.max(0, cheers - 1) })
-          .eq("id", milestoneId);
-      } else {
-        await supabase.from("milestone_cheers").insert({ milestone_id: milestoneId, user_id: uid });
-        await supabase.from("milestones").update({ cheers: cheers + 1 }).eq("id", milestoneId);
-      }
-      const refreshed = await this.listMilestones(uid);
-      const updated = refreshed.find((m) => m.id === milestoneId);
-      if (!updated) throw new NotFoundError("Update not found.");
-      return updated;
+      const { data, error } = await getSupabase().rpc("toggle_milestone_cheer", {
+        p_milestone_id: milestoneId,
+      });
+      if (error) throw new Error(error.message);
+      const payload = data as { row: Record<string, unknown>; liked: boolean };
+      if (!payload?.row) throw new NotFoundError("Update not found.");
+      return { ...toMilestone(toMilestoneRow(payload.row)), viewerHasCheered: payload.liked };
     },
   };
 }
@@ -560,6 +578,8 @@ export function createSupabaseProfileRepo(): ProfileRepo {
           bio: String(r["bio"] ?? ""),
           color: String(r["color"] ?? "sky"),
           image_url: (r["image_url"] as string | null) ?? null,
+          theme: (r["theme"] as string | null) ?? null,
+          palette: (r["palette"] as string | null) ?? null,
           created_at: String(r["created_at"] ?? new Date().toISOString()),
         }),
       );
@@ -581,6 +601,8 @@ export function createSupabaseProfileRepo(): ProfileRepo {
         bio: String(row["bio"] ?? ""),
         color: String(row["color"] ?? "sky"),
         image_url: (row["image_url"] as string | null) ?? null,
+        theme: (row["theme"] as string | null) ?? null,
+        palette: (row["palette"] as string | null) ?? null,
         created_at: String(row["created_at"] ?? new Date().toISOString()),
       });
     },
@@ -603,34 +625,38 @@ export function createSupabaseProfileRepo(): ProfileRepo {
         bio: String(row["bio"] ?? ""),
         color: String(row["color"] ?? "sky"),
         image_url: (row["image_url"] as string | null) ?? null,
+        theme: (row["theme"] as string | null) ?? null,
+        palette: (row["palette"] as string | null) ?? null,
         created_at: String(row["created_at"] ?? new Date().toISOString()),
       });
     },
 
     async ensureUserProfile(user: User) {
       const supabase = getSupabase();
-      const { data: existing } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+      const { data: existing } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
       if (existing) {
         const row = existing as Record<string, unknown>;
-        if (String(row["name"] ?? "") !== user.name) {
-          const { data: renamed } = await supabase
-            .from("profiles")
-            .update({ name: user.name })
-            .eq("id", user.id)
-            .select()
-            .single();
-          if (renamed) {
-            const r = renamed as Record<string, unknown>;
-            return toProfile({
-              id: String(r["id"]),
-              name: String(r["name"] ?? ""),
-              role: String(r["role"] ?? ""),
-              bio: String(r["bio"] ?? ""),
-              color: String(r["color"] ?? "sky"),
-              image_url: (r["image_url"] as string | null) ?? null,
-              created_at: String(r["created_at"] ?? new Date().toISOString()),
-            });
+        const storedName = String(row["name"] ?? "");
+        if (storedName !== user.name) {
+          if (storedName.trim()) {
+            // The profile row is the source of truth for display names (it is
+            // what the user edits in-app). Heal the auth metadata toward it.
+            // The old direction did the reverse and wiped renames on every
+            // login whenever metadata drifted (failed updateUser call or an
+            // OAuth provider refresh overwriting user_metadata).
+            try {
+              await supabase.auth.updateUser({ data: { name: storedName } });
+            } catch {
+              // Metadata is only a session cache — the row below still wins.
+            }
+            return this.getProfile(user.id);
           }
+          // Data repair for the impossible-but-cheap empty-name row.
+          await supabase.from("profiles").update({ name: user.name }).eq("id", user.id);
         }
         return this.getProfile(user.id);
       }
@@ -657,7 +683,18 @@ export function createSupabaseProfileRepo(): ProfileRepo {
       const role = patch.role?.trim() ?? current.role;
       const bio = patch.bio?.trim() ?? current.bio;
       const color = patch.color?.trim() ?? current.color;
-      const imageUrl = patch.imageUrl !== undefined ? patch.imageUrl.trim() : (current.imageUrl ?? "");
+      const imageUrl =
+        patch.imageUrl !== undefined ? patch.imageUrl.trim() : (current.imageUrl ?? "");
+      const theme =
+        patch.theme !== undefined ? patch.theme.trim() || null : (current.theme ?? null);
+      if (theme !== null && !(PROFILE_THEMES as readonly string[]).includes(theme)) {
+        throw new Error("Pick a valid profile theme.");
+      }
+      const palette =
+        patch.palette !== undefined ? patch.palette.trim() || null : (current.palette ?? null);
+      if (palette !== null && !(SITE_PALETTE_IDS as readonly string[]).includes(palette)) {
+        throw new Error("Pick a valid website palette.");
+      }
       if (!name) throw new Error("Name is required.");
       if (name.length > 40) throw new Error("Keep your name under 40 characters.");
       if (!role) throw new Error("Role is required.");
@@ -669,10 +706,11 @@ export function createSupabaseProfileRepo(): ProfileRepo {
         .ilike("name", name)
         .neq("id", id)
         .limit(1);
-      if (taken && taken.length > 0) throw new Error("That name is already taken by another developer.");
+      if (taken && taken.length > 0)
+        throw new Error("That name is already taken by another developer.");
       const { error } = await supabase
         .from("profiles")
-        .update({ name, role, bio, color, image_url: imageUrl || null })
+        .update({ name, role, bio, color, image_url: imageUrl || null, theme, palette })
         .eq("id", id);
       if (error) throw new Error(error.message);
       return this.getProfile(id);
@@ -690,16 +728,25 @@ export function createSupabaseProfileRepo(): ProfileRepo {
 
       const { data: ownedApps } = await supabase.from("apps").select("id").eq("creator_id", from);
       for (const app of (ownedApps ?? []) as { id: string }[]) {
-        await supabase.from("apps").update({ creator_id: to, creator: requester.name }).eq("id", app.id);
+        await supabase
+          .from("apps")
+          .update({ creator_id: to, creator: requester.name })
+          .eq("id", app.id);
       }
-      const { data: ownedComments } = await supabase.from("comments").select("id").eq("author_id", from);
+      const { data: ownedComments } = await supabase
+        .from("comments")
+        .select("id")
+        .eq("author_id", from);
       for (const comment of (ownedComments ?? []) as { id: string }[]) {
         await supabase
           .from("comments")
           .update({ author_id: to, author_name: requester.name })
           .eq("id", comment.id);
       }
-      const { data: ownedMilestones } = await supabase.from("milestones").select("id").eq("author_id", from);
+      const { data: ownedMilestones } = await supabase
+        .from("milestones")
+        .select("id")
+        .eq("author_id", from);
       for (const milestone of (ownedMilestones ?? []) as { id: string }[]) {
         await supabase
           .from("milestones")
@@ -709,26 +756,43 @@ export function createSupabaseProfileRepo(): ProfileRepo {
       const { data: votes } = await supabase.from("app_votes").select("app_id").eq("user_id", from);
       for (const vote of (votes ?? []) as { app_id: string }[]) {
         await supabase.from("app_votes").delete().eq("app_id", vote.app_id).eq("user_id", from);
-        await supabase.from("app_votes").upsert(
-          { app_id: vote.app_id, user_id: to },
-          { onConflict: "app_id,user_id" },
-        );
+        await supabase
+          .from("app_votes")
+          .upsert({ app_id: vote.app_id, user_id: to }, { onConflict: "app_id,user_id" });
       }
-      const { data: likes } = await supabase.from("comment_likes").select("comment_id").eq("user_id", from);
+      const { data: likes } = await supabase
+        .from("comment_likes")
+        .select("comment_id")
+        .eq("user_id", from);
       for (const like of (likes ?? []) as { comment_id: string }[]) {
-        await supabase.from("comment_likes").delete().eq("comment_id", like.comment_id).eq("user_id", from);
-        await supabase.from("comment_likes").upsert(
-          { comment_id: like.comment_id, user_id: to },
-          { onConflict: "comment_id,user_id" },
-        );
+        await supabase
+          .from("comment_likes")
+          .delete()
+          .eq("comment_id", like.comment_id)
+          .eq("user_id", from);
+        await supabase
+          .from("comment_likes")
+          .upsert(
+            { comment_id: like.comment_id, user_id: to },
+            { onConflict: "comment_id,user_id" },
+          );
       }
-      const { data: cheers } = await supabase.from("milestone_cheers").select("milestone_id").eq("user_id", from);
+      const { data: cheers } = await supabase
+        .from("milestone_cheers")
+        .select("milestone_id")
+        .eq("user_id", from);
       for (const cheer of (cheers ?? []) as { milestone_id: string }[]) {
-        await supabase.from("milestone_cheers").delete().eq("milestone_id", cheer.milestone_id).eq("user_id", from);
-        await supabase.from("milestone_cheers").upsert(
-          { milestone_id: cheer.milestone_id, user_id: to },
-          { onConflict: "milestone_id,user_id" },
-        );
+        await supabase
+          .from("milestone_cheers")
+          .delete()
+          .eq("milestone_id", cheer.milestone_id)
+          .eq("user_id", from);
+        await supabase
+          .from("milestone_cheers")
+          .upsert(
+            { milestone_id: cheer.milestone_id, user_id: to },
+            { onConflict: "milestone_id,user_id" },
+          );
       }
       await supabase.from("profiles").delete().eq("id", from);
       return this.ensureUserProfile(requester);

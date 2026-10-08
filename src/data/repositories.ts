@@ -28,6 +28,7 @@ export type GoogleAccount = {
 export type AuthRepo = {
   getSession(): Promise<User | null>;
   signin(email: string, password: string): Promise<User>;
+  signup(name: string, email: string, password: string): Promise<User>;
   signinWithGoogleAccount(account: GoogleAccount): Promise<GoogleSignInResult>;
   signout(): Promise<void>;
   updateName(name: string): Promise<User>;
@@ -40,9 +41,21 @@ export type AppRepo = {
   updateApp(appId: string, author: User, patch: AppUpdate): Promise<AppItem>;
   deleteApp(appId: string, author: User): Promise<void>;
   toggleVote(appId: string, userId: string): Promise<AppItem>;
+  /**
+   * Profiles that upvoted a project, alphabetical by name. Only voters with
+   * a resolvable profile are returned, so legacy seed counts may exceed the
+   * list length — callers should treat the list as identities, not a count.
+   */
+  listVoters(appId: string): Promise<Profile[]>;
   listBuilders(): Promise<Builder[]>;
   listComments(appId: string, userId?: string): Promise<Comment[]>;
   addComment(appId: string, author: User, body: string, parentId?: string): Promise<Comment>;
+  /**
+   * Delete the author's own comment/reply plus its nested replies
+   * (matches the parent_id ON DELETE CASCADE in SQL). Throws when the
+   * requester is not the author.
+   */
+  deleteComment(appId: string, commentId: string, requester: User): Promise<void>;
   toggleCommentLike(appId: string, commentId: string, userId: string): Promise<Comment>;
   listMilestones(userId?: string): Promise<Milestone[]>;
   postMilestone(author: User, body: string, appId?: string): Promise<Milestone>;
@@ -55,6 +68,10 @@ export type ProfilePatch = {
   color?: string;
   imageUrl?: string;
   name?: string;
+  /** Profile-page theme; empty string clears it back to default. */
+  theme?: string;
+  /** Website palette for the account; empty string clears it back to device choice. */
+  palette?: string;
 };
 
 export type ProfileRepo = {
