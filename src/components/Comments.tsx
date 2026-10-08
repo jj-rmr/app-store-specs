@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { ChatCircleDots, Heart } from "@phosphor-icons/react";
+import {
+  ChatCircleDots,
+  DotsThreeVertical,
+  Heart,
+  Trash,
+} from "@phosphor-icons/react";
 import Avatar from "./Avatar";
 import TrophyMark from "./TrophyMark";
 import { Button } from "./Button";
@@ -85,6 +90,13 @@ export default function Comments({
   const [replyError, setReplyError] = useState<string | null>(null);
   const [likePending, setLikePending] = useState<Set<string>>(new Set());
   const [visibleReplies, setVisibleReplies] = useState<Record<string, number>>({});
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletePending, setDeletePending] = useState<Set<string>>(new Set());
+  const [deleteError, setDeleteError] = useState<{
+    id: string;
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +117,68 @@ export default function Comments({
       cancelled = true;
     };
   }, [appId, currentUser?.id]);
+
+  useEffect(() => {
+    if (!menuFor) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMenuFor(null);
+        setConfirmDeleteId(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuFor]);
+
+  const openMenu = (id: string) => {
+    setMenuFor((current) => (current === id ? null : id));
+    setConfirmDeleteId(null);
+    setDeleteError(null);
+  };
+
+  const closeMenu = () => {
+    setMenuFor(null);
+    setConfirmDeleteId(null);
+  };
+
+  const removeComment = async (c: Comment) => {
+    if (!currentUser || deletePending.has(c.id)) return;
+    setDeletePending((prev) => new Set(prev).add(c.id));
+    setDeleteError(null);
+    try {
+      await getAppRepo().deleteComment(appId, c.id, currentUser);
+      setComments((items) => {
+        // Mirror the repo: the comment plus every nested reply goes.
+        const doomed = new Set<string>([c.id]);
+        let grew = true;
+        while (grew) {
+          grew = false;
+          for (const x of items) {
+            if (x.parentId && doomed.has(x.parentId) && !doomed.has(x.id)) {
+              doomed.add(x.id);
+              grew = true;
+            }
+          }
+        }
+        const next = items.filter((x) => !doomed.has(x.id));
+        onCommentAdded?.(appId, next.length);
+        return next;
+      });
+      if (replyTo === c.id) setReplyTo(null);
+      closeMenu();
+    } catch (e) {
+      setDeleteError({
+        id: c.id,
+        message: e instanceof Error ? e.message : "Could not delete comment.",
+      });
+    } finally {
+      setDeletePending((prev) => {
+        const next = new Set(prev);
+        next.delete(c.id);
+        return next;
+      });
+    }
+  };
 
   const topLevel = comments
     .filter((c) => !c.parentId)
@@ -293,6 +367,81 @@ export default function Comments({
                 {kids.length} {kids.length === 1 ? "reply" : "replies"}
               </span>
             )
+          )}
+          {currentUser && c.authorId === currentUser.id && (
+            <span className="relative ml-auto">
+              <button
+                type="button"
+                onClick={() => openMenu(c.id)}
+                aria-haspopup="menu"
+                aria-expanded={menuFor === c.id}
+                aria-label={`Options for your ${c.parentId ? "reply" : "comment"}`}
+                className="rounded-full p-1 text-muted hover:bg-cream hover:text-ink"
+              >
+                <DotsThreeVertical size={18} weight="bold" aria-hidden="true" />
+              </button>
+              {menuFor === c.id && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Close options"
+                    onClick={closeMenu}
+                    className="fixed inset-0 z-40 cursor-default bg-transparent"
+                  />
+                  <span
+                    role="menu"
+                    aria-label="Comment options"
+                    className="absolute right-0 z-50 mt-1 w-48 rounded-xl border-2 border-ink bg-surface p-1.5 shadow-[3px_3px_0_var(--color-ink)]"
+                  >
+                    {confirmDeleteId === c.id ? (
+                      <span className="block p-1">
+                        <span className="block text-xs font-black">
+                          Delete this {c.parentId ? "reply" : "comment"}
+                          {kids.length > 0 &&
+                            ` and its ${kids.length} ${kids.length === 1 ? "reply" : "replies"}`}
+                          ?
+                        </span>
+                        {deleteError?.id === c.id && (
+                          <span role="alert" className="mt-1 block text-xs font-bold">
+                            {deleteError.message}
+                          </span>
+                        )}
+                        <span className="mt-2 flex gap-2">
+                          <Button
+                            variant="danger"
+                            size="compact"
+                            type="button"
+                            onClick={() => void removeComment(c)}
+                            disabled={deletePending.has(c.id)}
+                          >
+                            <Trash size={14} weight="bold" aria-hidden="true" />
+                            {deletePending.has(c.id) ? "…" : "Delete"}
+                          </Button>
+                          <Button
+                            variant="surface"
+                            size="compact"
+                            type="button"
+                            onClick={closeMenu}
+                          >
+                            Keep
+                          </Button>
+                        </span>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => setConfirmDeleteId(c.id)}
+                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-black text-alert hover:bg-cream"
+                      >
+                        <Trash size={16} weight="bold" aria-hidden="true" />
+                        Delete
+                      </button>
+                    )}
+                  </span>
+                </>
+              )}
+            </span>
           )}
         </div>
 

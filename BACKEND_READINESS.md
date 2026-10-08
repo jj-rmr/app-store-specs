@@ -28,6 +28,7 @@ future database/server swap mechanical. Nothing here changes localhost behavior.
 4. Implement the endpoint contract (thin server or Supabase Edge Functions):
    - `GET /auth/session` → `{ user }` (401 when signed out)
    - `POST /auth/signin {email, password}` → `{ user, token }`
+   - `POST /auth/signup {name, email, password}` → `{ user, token }`
    - `POST /auth/google {accessToken}` → `{ user, token, picture? }`.
      Server MUST fetch Google userinfo itself and match verified email → account.
      Never trust client-sent claims.
@@ -37,9 +38,11 @@ future database/server swap mechanical. Nothing here changes localhost behavior.
    - `GET /apps/:id` → `{ app }` · `POST /apps` → `{ app }`
      · `PATCH /apps/:id` → `{ app }` (owner only) · `DELETE /apps/:id` → 204
    - `POST /apps/:id/vote` → `{ app }` (toggle)
+   - `GET /apps/:id/voters` → `{ voters }` (profiles of upvoters, any order)
    - `GET /apps/:id/comments` → `{ comments }` (flat, `parent_id` nests replies)
    - `POST /apps/:id/comments {body, parentId?}` → `{ comment }`
    - `POST /apps/:id/comments/:commentId/like` → `{ comment }` (toggle)
+   - `DELETE /apps/:id/comments/:commentId` → 204 (author only, replies cascade)
    - `GET /milestones` → `{ milestones }` (newest first)
    - `POST /milestones {body, appId?}` → `{ milestone }`
    - `POST /milestones/:id/cheer` → `{ milestone }` (toggle)

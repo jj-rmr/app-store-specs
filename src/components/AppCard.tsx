@@ -1,10 +1,12 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { ArrowRight, ChatCircleDots, Heart, PencilSimple, X } from "@phosphor-icons/react";
 import Avatar from "./Avatar";
 import Comments from "./Comments";
 import MentionText from "./MentionText";
 import TrophyMark from "./TrophyMark";
+import UploadStamp from "./UploadStamp";
+import VotersDialog from "./VotersDialog";
 import { profileForApp } from "../data/profileLinks";
 import type { AppItem, Profile, User } from "../data/types";
 import { Button, ButtonLink } from "./Button";
@@ -57,9 +59,27 @@ export default function AppCard({
   const creatorProfile = profileForApp(app, profiles);
   const creatorName = creatorProfile ? creatorProfile.name : app.creator;
   const isOwner = user && (app.creatorId ? app.creatorId === user.id : app.creator === user.name);
+  const pressPos = useRef<{ x: number; y: number } | null>(null);
+
+  // Whole-card open: any press on the card itself opens the project, except
+  // presses on inner controls (vote, comments, profiles, voters, links) and
+  // text-selection drags, which keep their own behavior.
+  const openFromCard = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("button, a, input, select, textarea")) return;
+    const start = pressPos.current;
+    if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 6) return;
+    onOpenApp(app.id);
+  };
 
   return (
-    <article className="toon-card paper-note rounded-lg p-4 rotate-1">
+    <article
+      onMouseDown={(e) => {
+        pressPos.current = { x: e.clientX, y: e.clientY };
+      }}
+      onClick={openFromCard}
+      className="toon-card paper-note flex h-full cursor-pointer flex-col rounded-lg p-4 rotate-1"
+    >
       <button
         onClick={() => onOpenApp(app.id)}
         aria-label={`Open ${app.title} details`}
@@ -83,7 +103,7 @@ export default function AppCard({
           </div>
         )}
       </button>
-      <div>
+      <div className="flex flex-1 flex-col">
         <div className="mt-5 flex items-start justify-between gap-3 sm:mt-0">
           <div>
             <span className="text-[10px] font-black uppercase text-purple">{app.category}</span>
@@ -104,29 +124,8 @@ export default function AppCard({
             onOpenProfile={onOpenProfile}
           />
         </p>
-        {(() => {
-          const collabs = (app.collaborators ?? [])
-            .map((id) => profiles.get(id))
-            .filter((p): p is Profile => Boolean(p));
-          if (!collabs.length) return null;
-          return (
-            <p className="mt-2 text-xs font-black">
-              <span className="uppercase text-muted">Collaborators: </span>
-              {collabs.map((p, i) => (
-                <span key={p.id}>
-                  {i > 0 && <span className="text-muted">, </span>}
-                  <button
-                    onClick={() => onOpenProfile(p.id)}
-                    className="underline decoration-2 underline-offset-4"
-                  >
-                    {p.name}
-                  </button>
-                </span>
-              ))}
-            </p>
-          );
-        })()}
-        <p className="mt-3 mb-2 text-xs font-black">
+        <div aria-hidden="true" className="flex-1" />
+        <p className="mt-3 mb-1 text-xs font-black">
           by{" "}
           {creatorProfile ? (
             <button
@@ -142,8 +141,33 @@ export default function AppCard({
             <TrophyMark place={trophies.get(creatorProfile.id) as 1 | 2 | 3} size={16} />
           )}
         </p>
+        {(() => {
+          const collabs = (app.collaborators ?? [])
+            .map((id) => profiles.get(id))
+            .filter((p): p is Profile => Boolean(p));
+          if (!collabs.length) return null;
+          return (
+            <p className="mt-1 text-xs font-black">
+              <span className="uppercase text-muted">Collaborators: </span>
+              {collabs.map((p, i) => (
+                <span key={p.id}>
+                  {i > 0 && <span className="text-muted">, </span>}
+                  <button
+                    onClick={() => onOpenProfile(p.id)}
+                    className="underline decoration-2 underline-offset-4"
+                  >
+                    {p.name}
+                  </button>
+                </span>
+              ))}
+            </p>
+          );
+        })()}
+        <div className="mb-2">
+          <UploadStamp createdAt={app.createdAt} />
+        </div>
         <div className="mt-7 flex min-h-8 items-center gap-4 border-t-2 border-dashed border-divider pt-4">
-          <span className="flex gap-2">
+          <span className="flex items-center gap-2">
             <Button variant="vote" onClick={() => onVote(app.id)} aria-pressed={voted}>
               <Heart size={20} weight={voted ? "fill" : "duotone"} />
               {app.votes}
@@ -159,6 +183,12 @@ export default function AppCard({
               {app.comments}
               <span className="sr-only">Show comments</span>
             </Button>
+            <VotersDialog
+              appId={app.id}
+              appTitle={app.title}
+              totalVotes={app.votes}
+              onOpenProfile={onOpenProfile}
+            />
           </span>
           <span className="ml-auto flex items-center gap-2">
             {isOwner && (

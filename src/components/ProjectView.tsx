@@ -21,13 +21,18 @@ import Comments from "./Comments";
 import MentionInput from "./MentionInput";
 import MentionText from "./MentionText";
 import TrophyMark from "./TrophyMark";
-import Markdown from "./Markdown";
 import MarkdownTextarea from "./MarkdownTextarea";
+import PagedMarkdown from "./PagedMarkdown";
+import UploadStamp from "./UploadStamp";
+import VotersDialog from "./VotersDialog";
 import { Button, ButtonLabel, ButtonLink } from "./Button";
 import { getAppRepo, getProfileRepo } from "../data/factory";
 import { profileIdForApp } from "../data/profileLinks";
 import { fileToThumbnailDataUrl } from "../utils/images";
 import { extractMentionIds } from "../utils/mentions";
+import { bumpCollabTag } from "../utils/notifications";
+import { playVoteSound } from "../utils/sounds";
+import { useScrollToForm } from "../utils/scroll";
 import { readMarkdownFile } from "../utils/readMarkdownFile";
 import {
   isGitHubRepositoryUrl,
@@ -50,55 +55,7 @@ type ProjectViewProps = {
   startEditing?: boolean;
 };
 
-const DOCS_PREVIEW_LIMIT = 1000;
-
 function DocsSection({ text, source }: { text: string; source?: string }) {
-  const COLLAPSED_PX = 320;
-  const STEP_PX = 600;
-  const long = text.length > DOCS_PREVIEW_LIMIT;
-  const [height, setHeight] = useState<number | null>(long ? COLLAPSED_PX : null);
-  const [hasMore, setHasMore] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const prevCapped = useRef<number>(COLLAPSED_PX);
-
-  useEffect(() => {
-    setHeight(text.length > DOCS_PREVIEW_LIMIT ? COLLAPSED_PX : null);
-    prevCapped.current = COLLAPSED_PX;
-  }, [text]);
-
-  useEffect(() => {
-    const el = contentRef.current;
-    if (!el || height === null) {
-      setHasMore(false);
-      return;
-    }
-    const check = () => setHasMore(el.scrollHeight > height + 24);
-    check();
-    const ro = new ResizeObserver(check);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [text, height]);
-
-  const expanded = height === null || height > COLLAPSED_PX;
-  const capped = height !== null;
-
-  const seeMore = () => {
-    if (height === null) return;
-    prevCapped.current = height;
-    setHeight(height + STEP_PX);
-  };
-  const seeLess = () => {
-    if (height === null) {
-      setHeight(prevCapped.current);
-      return;
-    }
-    setHeight(Math.max(COLLAPSED_PX, height - STEP_PX));
-  };
-  const showAll = () => {
-    if (height !== null) prevCapped.current = height;
-    setHeight(null);
-  };
-  const collapse = () => setHeight(COLLAPSED_PX);
   const download = () => {
     const blobUrl = URL.createObjectURL(new Blob([text], { type: "text/markdown;charset=utf-8" }));
     const link = document.createElement("a");
@@ -126,79 +83,7 @@ function DocsSection({ text, source }: { text: string; source?: string }) {
           Download documentation
         </Button>
       </div>
-      <div
-        ref={contentRef}
-        style={capped ? { maxHeight: height as number } : undefined}
-        className={capped ? "relative overflow-hidden" : undefined}
-      >
-        <Markdown text={text} />
-        {capped && hasMore && (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-24"
-            style={{ background: "linear-gradient(to top, var(--color-paper), transparent)" }}
-          />
-        )}
-      </div>
-      {long && (
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          {hasMore && (
-            <Button
-              variant="secondary"
-              size="small"
-              onClick={seeMore}
-              aria-expanded={expanded}
-            >
-              See more
-            </Button>
-          )}
-          {expanded && capped && height > COLLAPSED_PX && (
-            <Button
-              variant="surface"
-              size="small"
-              onClick={seeLess}
-              aria-expanded={expanded}
-            >
-              See less
-            </Button>
-          )}
-          {height === null ? (
-            <>
-              <Button
-                variant="surface"
-                size="small"
-                onClick={seeLess}
-                aria-expanded={expanded}
-              >
-                See less
-              </Button>
-              <button
-                onClick={collapse}
-                className="text-sm font-black underline decoration-2 underline-offset-4"
-              >
-                Collapse
-              </button>
-            </>
-          ) : (
-            hasMore && (
-              <button
-                onClick={showAll}
-                className="text-sm font-black underline decoration-2 underline-offset-4"
-              >
-                Show all
-              </button>
-            )
-          )}
-          {capped && !hasMore && expanded && (
-            <button
-              onClick={collapse}
-              className="text-sm font-black underline decoration-2 underline-offset-4"
-            >
-              Collapse
-            </button>
-          )}
-        </div>
-      )}
+      <PagedMarkdown text={text} />
     </section>
   );
 }
@@ -324,8 +209,13 @@ export default function ProjectView({
     };
   }, [lightbox]);
 
+  const [voting, setVoting] = useState(false);
+  const editFormRef = useRef<HTMLFormElement>(null);
+  useScrollToForm(editing, editFormRef);
+
   const vote = async () => {
-    if (!app || !currentUser) return;
+    if (!app || !currentUser || voting) return;
+    setVoting(true);
     const previous = app;
     setApp({
       ...app,
@@ -336,8 +226,11 @@ export default function ProjectView({
       const updated = await getAppRepo().toggleVote(app.id, currentUser.id);
       setApp(updated);
       onChanged();
+      playVoteSound();
     } catch {
       setApp(previous);
+    } finally {
+      setVoting(false);
     }
   };
 
@@ -482,6 +375,10 @@ export default function ProjectView({
     setESaving(true);
     setEError(null);
     try {
+      const before = new Set(app.collaborators ?? []);
+      const nextCollaborators = [
+        ...new Set([...eCollabIds, ...extractMentionIds(eDesc, [...profiles.values()])]),
+      ];
       const updated = await getAppRepo().updateApp(app.id, currentUser, {
         title: eTitle,
         description: eDesc,
@@ -490,13 +387,17 @@ export default function ProjectView({
         category: eCategory,
         screenshots: eShots,
         docs: eDocs,
-        collaborators: [
-          ...new Set([...eCollabIds, ...extractMentionIds(eDesc, [...profiles.values()])]),
-        ],
+        collaborators: nextCollaborators,
       });
       setApp(updated);
       setEditing(false);
       onChanged();
+      // Re-arm newly added tags so the tagged developers notify as new —
+      // including re-adds after a removal (their stored snapshot may predate
+      // the untag if they never loaded the app mid-gap).
+      for (const id of nextCollaborators) {
+        if (!before.has(id) && id !== currentUser.id) bumpCollabTag(id, app.id);
+      }
     } catch (err) {
       setEError(err instanceof Error ? err.message : "Could not save changes.");
     } finally {
@@ -573,6 +474,9 @@ export default function ProjectView({
               <TrophyMark place={projectTrophies.get(app.id) as 1 | 2 | 3} size={30} />
             )}
           </h2>
+          <div className="mt-2">
+            <UploadStamp createdAt={app.createdAt} />
+          </div>
           <p className="mt-3 max-w-3xl text-lg leading-8 text-body">
             <MentionText
               text={app.description}
@@ -580,6 +484,28 @@ export default function ProjectView({
               onOpenProfile={onOpenProfile}
             />
           </p>
+          {(() => {
+            const collabs = (app.collaborators ?? [])
+              .map((id) => profiles.get(id))
+              .filter((p): p is Profile => Boolean(p));
+            if (!collabs.length) return null;
+            return (
+              <p className="mt-3 max-w-3xl text-sm font-black">
+                <span className="uppercase text-muted">Collaborators: </span>
+                {collabs.map((p, i) => (
+                  <span key={p.id}>
+                    {i > 0 && <span className="text-muted">, </span>}
+                    <button
+                      onClick={() => onOpenProfile(p.id)}
+                      className="underline decoration-2 underline-offset-4"
+                    >
+                      {p.name}
+                    </button>
+                  </span>
+                ))}
+              </p>
+            );
+          })()}
 
           <div className="mt-5 flex flex-wrap items-center gap-4">
             <Button
@@ -595,6 +521,12 @@ export default function ProjectView({
               <ChatCircleDots size={20} weight="duotone" />
               {app.comments} feedback
             </span>
+            <VotersDialog
+              appId={app.id}
+              appTitle={app.title}
+              totalVotes={app.votes}
+              onOpenProfile={onOpenProfile}
+            />
             {app.url && (
               <ButtonLink
                 href={app.url}
@@ -639,8 +571,9 @@ export default function ProjectView({
 
       {editing && (
         <form
+          ref={editFormRef}
           onSubmit={(e) => void saveEdit(e)}
-          className="toon-card paper-note mt-8 grid gap-5 rounded-lg bg-sky p-6 pt-10 sm:grid-cols-2"
+          className="toon-card paper-note mt-8 grid scroll-mt-28 gap-5 rounded-lg bg-sky p-6 pt-10 sm:grid-cols-2"
         >
           <div className="sm:col-span-2">
             <PencilSimple size={32} weight="duotone" />
@@ -974,7 +907,7 @@ export default function ProjectView({
             {eDocsTab === "preview" && (
               <div className="rounded-2xl border-[3px] border-ink bg-surface p-4">
                 {eDocs.trim() ? (
-                  <Markdown text={eDocs} />
+                  <PagedMarkdown text={eDocs} fadeTo="var(--color-surface)" />
                 ) : (
                   <p className="text-sm font-bold text-muted">
                     Nothing to preview yet — write some markdown or upload a README.

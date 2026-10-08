@@ -23,6 +23,8 @@ create table if not exists profiles (
   bio text not null default '',
   color text not null default 'sky',
   image_url text,
+  theme text,
+  palette text,
   created_at timestamptz not null default now()
 );
 
@@ -123,6 +125,8 @@ create policy "own delete app_votes" on app_votes
   for delete using (auth.uid()::text = user_id);
 create policy "signed-in insert comments" on comments
   for insert with check (auth.role() = 'authenticated');
+create policy "own delete comments" on comments
+  for delete using (auth.uid()::text = author_id);
 create policy "signed-in insert comment_likes" on comment_likes
   for insert with check (auth.role() = 'authenticated');
 create policy "own delete comment_likes" on comment_likes
@@ -133,6 +137,47 @@ create policy "signed-in insert milestone_cheers" on milestone_cheers
   for insert with check (auth.role() = 'authenticated');
 create policy "own delete milestone_cheers" on milestone_cheers
   for delete using (auth.uid()::text = user_id);
+
+-- ── Input validation (mirrors the repo-layer limits) ─────────────────────
+-- Existing databases get these from migration_constraints.sql instead.
+alter table apps add constraint apps_title_length
+  check (char_length(title) between 1 and 80);
+alter table apps add constraint apps_description_length
+  check (char_length(description) between 1 and 280);
+alter table apps add constraint apps_docs_length
+  check (docs is null or char_length(docs) <= 50000);
+alter table apps add constraint apps_category_valid
+  check (category in ('Education', 'Productivity', 'Games', 'Creative'));
+alter table apps add constraint apps_votes_nonnegative
+  check (votes >= 0);
+alter table apps add constraint apps_url_protocol
+  check (url is null or url ilike 'http://%' or url ilike 'https://%');
+alter table apps add constraint apps_repo_url_protocol
+  check (repo_url is null or repo_url ilike 'http://%' or repo_url ilike 'https://%');
+
+alter table comments add constraint comments_body_length
+  check (char_length(body) between 1 and 500);
+alter table comments add constraint comments_likes_nonnegative
+  check (likes >= 0);
+
+alter table milestones add constraint milestones_body_length
+  check (char_length(body) between 1 and 280);
+alter table milestones add constraint milestones_cheers_nonnegative
+  check (cheers >= 0);
+
+alter table profiles add constraint profiles_name_length
+  check (char_length(name) between 1 and 40);
+alter table profiles add constraint profiles_role_length
+  check (char_length(role) between 1 and 80);
+alter table profiles add constraint profiles_bio_length
+  check (char_length(bio) <= 280);
+alter table profiles add constraint profiles_color_valid
+  check (color in ('yellow', 'mint', 'pink', 'sky', 'lavender', 'purple', 'paper', 'surface'));
+alter table profiles add constraint profiles_theme_valid
+  check (theme is null or theme in ('pink', 'yellow', 'mint', 'sky', 'lavender', 'purple', 'black'));
+
+-- profiles.name stays non-unique on purpose: duplicates are legal and the
+-- claim/merge flow reconciles them. screenshots/collaborators stay schemaless.
 
 -- ── Helpful indexes ───────────────────────────────────────────────────────
 create index if not exists apps_creator_idx on apps (creator_id);

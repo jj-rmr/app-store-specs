@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @theme {
+  --color-black: #000000;
   --color-ink: #20283c;
   --color-cream: #f6f4ed;
   --color-purple: #6558bd;
@@ -36,6 +37,142 @@
   font-synthesis: none;
 }
 
+/* ── Website palettes ────────────────────────────────────────────────────
+   Every component reads these variables at runtime (Tailwind utilities and
+   inline styles alike), so overriding them re-themes the whole site.
+   Structural/semantic colors (ink, body, muted, alert, vote, dividers,
+   shadows) stay fixed so text contrast and the toon outlines never break.
+   "candy" is the @theme default above, so it needs no block. */
+
+:root[data-palette="ocean"] {
+  --color-purple: #2f6df6;
+  --color-yellow: #ffcf5c;
+  --color-mint: #4fd1b5;
+  --color-pink: #ff9ec6;
+  --color-sky: #6fc3e8;
+  --color-lavender: #9aa8f0;
+  --color-paper: #f6f3ea;
+  --color-cream: #ebf2ec;
+  --color-surface: #ffffff;
+}
+
+:root[data-palette="sunset"] {
+  --color-purple: #9d4edd;
+  --color-yellow: #ff9e00;
+  --color-mint: #8ac926;
+  --color-pink: #ff5d8f;
+  --color-sky: #4cc9f0;
+  --color-lavender: #c4b5fd;
+  --color-paper: #faf3ea;
+  --color-cream: #f6e9dd;
+  --color-surface: #ffffff;
+}
+
+:root[data-palette="forest"] {
+  --color-purple: #2d6a4f;
+  --color-yellow: #e9c46a;
+  --color-mint: #74c69d;
+  --color-pink: #e5989b;
+  --color-sky: #6aaed6;
+  --color-lavender: #a78bfa;
+  --color-paper: #f4f1e6;
+  --color-cream: #e9efe3;
+  --color-surface: #ffffff;
+}
+
+:root[data-palette="mono"] {
+  --color-purple: #3f3f3f;
+  --color-yellow: #8a8a8a;
+  --color-mint: #b0b0b0;
+  --color-pink: #c9c9c9;
+  --color-sky: #dcdcdc;
+  --color-lavender: #e8e8e8;
+  --color-paper: #fafafa;
+  --color-cream: #f1f1f1;
+  --color-surface: #ffffff;
+}
+
+:root[data-palette="bubblegum"] {
+  --color-purple: #d6336c;
+  --color-yellow: #ffd166;
+  --color-mint: #8ce8d2;
+  --color-pink: #ff5d8f;
+  --color-sky: #a9def9;
+  --color-lavender: #d0b3f5;
+  --color-paper: #fdf2f6;
+  --color-cream: #fbdfea;
+  --color-surface: #ffffff;
+}
+
+:root[data-palette="citrus"] {
+  --color-purple: #65a30d;
+  --color-yellow: #facc15;
+  --color-mint: #4ade80;
+  --color-pink: #fb7185;
+  --color-sky: #22d3ee;
+  --color-lavender: #a78bfa;
+  --color-paper: #faf9ec;
+  --color-cream: #f3eedb;
+  --color-surface: #ffffff;
+}
+
+:root[data-palette="grape"] {
+  --color-purple: #6d28d9;
+  --color-yellow: #e9d5ff;
+  --color-mint: #c4b5fd;
+  --color-pink: #f0abfc;
+  --color-sky: #a5b4fc;
+  --color-lavender: #ddd6fe;
+  --color-paper: #f7f3fc;
+  --color-cream: #efe9fb;
+  --color-surface: #ffffff;
+}
+
+/* Midnight is the only dark palette: black surfaces, grayscale accents,
+   white text, and one deep antique gold. Gold stays dark enough to read
+   light text on buttons. Tape, grid lines, and alert colors are shared
+   because they read fine on dark. */
+:root[data-palette="midnight"] {
+  color-scheme: dark;
+  --color-purple: #a3a3ab;
+  --color-yellow: #97742a;
+  --color-mint: #85858d;
+  --color-pink: #6f6f77;
+  --color-sky: #5a5a62;
+  --color-lavender: #48484f;
+  --color-paper: #101013;
+  --color-cream: #17171b;
+  --color-surface: #202026;
+  --color-ink: #f4f4f5;
+  --color-body: #b9bdc6;
+  --color-muted: #868b95;
+  --color-placeholder: #555a64;
+  --color-divider: #2c2c31;
+  --color-divider-strong: #3d3d44;
+  --color-ink-dots: rgb(244 244 245 / 10%);
+  --color-ink-shadow: rgb(0 0 0 / 60%);
+}
+
+/* Midnight outlines: --color-ink must stay near-white for text (buttons,
+   alerts, brand), so borders and their offset shadows are toned down to
+   dark gray here instead. Scoped to midnight only; every other palette is
+   untouched. Unlayered rules win over the layered utilities. */
+:root[data-palette="midnight"] .border-ink {
+  border-color: #43434c;
+}
+:root[data-palette="midnight"] .shadow-\[2px_2px_0_var\(--color-ink\)\] {
+  box-shadow: 2px 2px 0 #43434c;
+}
+:root[data-palette="midnight"] .shadow-\[3px_3px_0_var\(--color-ink\)\] {
+  box-shadow: 3px 3px 0 #43434c;
+}
+:root[data-palette="midnight"] .shadow-\[4px_4px_0_var\(--color-ink\)\] {
+  box-shadow: 4px 4px 0 #43434c;
+}
+:root[data-palette="midnight"] .drop-shadow-\[3px_3px_0_var\(--color-ink\)\] {
+  filter: drop-shadow(3px 3px 0 #43434c);
+}
+
 html {
   width: 100%;
   max-width: 100%;
@@ -55,7 +192,7 @@ html {
     24px 24px,
     24px 24px;
 
-    scrollbar-gutter: stable;
+  scrollbar-gutter: stable;
 }
 
 *::-webkit-scrollbar {

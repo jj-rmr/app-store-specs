@@ -7,6 +7,7 @@ type AuthContext = {
   user: User | null;
   loading: boolean;
   signin: (email: string, password: string) => Promise<boolean>;
+  signup: (name: string, email: string, password: string) => Promise<string | null>;
   signinWithGoogleAccount: (
     account: GoogleAccount,
   ) => Promise<{ ok: boolean; user?: User; picture?: string; error?: string }>;
@@ -46,6 +47,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Returns an error message on failure, null on success.
+  const signup = async (name: string, email: string, password: string) => {
+    try {
+      const session = await getAuthRepo().signup(name, email, password);
+      setUser(session);
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : "Could not create your account.";
+    }
+  };
+
   const signinWithGoogleAccount = async (account: GoogleAccount) => {
     try {
       const { user: session, picture } = await getAuthRepo().signinWithGoogleAccount(account);
@@ -67,7 +79,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <ctx.Provider value={{ user, loading, signin, signinWithGoogleAccount, signout, updateName }}>
+    <ctx.Provider
+      value={{ user, loading, signin, signup, signinWithGoogleAccount, signout, updateName }}
+    >
       {children}
     </ctx.Provider>
   );
