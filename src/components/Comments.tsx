@@ -8,6 +8,7 @@ import {
 import Avatar from "./Avatar";
 import TrophyMark from "./TrophyMark";
 import { Button } from "./Button";
+import Input from "./Input";
 import { getAppRepo } from "../data/factory";
 import { profileForComment } from "../data/profileLinks";
 import type { Comment, Profile, User } from "../data/types";
@@ -290,12 +291,12 @@ export default function Comments({
         <form onSubmit={(e) => void postTop(e)} className="flex gap-2">
           <label className="min-w-0 flex-1">
             <span className="sr-only">Add feedback for {appTitle}</span>
-            <input
+            <Input
               value={body}
               onChange={(e) => setBody(e.target.value)}
               maxLength={500}
               placeholder="Share useful feedback…"
-              className="toon-input py-2 text-sm"
+              className="py-2 text-sm"
             />
           </label>
           <Button
@@ -509,13 +510,13 @@ export default function Comments({
               <span className="sr-only">
                 Reply to {replyTarget ? replyTarget.authorName : "comment"}
               </span>
-              <input
+              <Input
                 value={replyBody}
                 onChange={(e) => setReplyBody(e.target.value)}
                 maxLength={500}
                 autoFocus
                 placeholder={`Reply to ${replyTarget ? replyTarget.authorName : "comment"}…`}
-                className="toon-input py-2 text-sm"
+                className="py-2 text-sm"
               />
             </label>
               <Button

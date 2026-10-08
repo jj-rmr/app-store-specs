@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ChatCircleDots, Heart, Images, PencilSimple } from "@phosphor-icons/react";
 import Avatar from "./Avatar";
+import Input, { getInputClassName } from "./Input";
 import MentionText from "./MentionText";
 import TrophyMark from "./TrophyMark";
 import { Button, ButtonLabel } from "./Button";
@@ -308,8 +309,7 @@ export default function ProfileView({
           >
             <label>
               <span className="toon-label">Display name</span>
-              <input
-                className="toon-input"
+              <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 maxLength={40}
@@ -319,8 +319,7 @@ export default function ProfileView({
             </label>
             <label>
               <span className="toon-label">Role</span>
-              <input
-                className="toon-input"
+              <Input
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 maxLength={80}
@@ -330,7 +329,7 @@ export default function ProfileView({
             </label>
             <label>
               <span className="toon-label">Avatar color</span>
-              <select className="toon-input" value={color} onChange={(e) => setColor(e.target.value)}>
+              <select className={getInputClassName()} value={color} onChange={(e) => setColor(e.target.value)}>
                 {AVATAR_COLORS.map((c) => (
                   <option key={c} value={c}>
                     {c}
@@ -372,8 +371,7 @@ export default function ProfileView({
             </div>
             <label className="sm:col-span-2">
               <span className="toon-label">Bio (280 chars)</span>
-              <input
-                className="toon-input"
+              <Input
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 maxLength={280}
@@ -416,8 +414,8 @@ export default function ProfileView({
                   </button>
                 )}
               </span>
-              <input
-                className="toon-input mt-3"
+              <Input
+                className="mt-3"
                 type="url"
                 value={imageUrl.startsWith("data:") ? "" : imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}

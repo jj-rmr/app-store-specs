@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Eye, EyeSlash, LockKey, Sparkle } from "@phospho
 import { useAuth } from "../auth/AuthProvider";
 import Brand from "../components/Brand";
 import { Button } from "../components/Button";
+import Input from "../components/Input";
 import { getProfileRepo } from "../data/factory";
 import { getSupabase } from "../data/supabase/client";
 import type { GoogleAccount } from "../data/repositories";
@@ -170,7 +171,9 @@ export default function Login() {
         </div>
         <div className="toon-card paper-note rounded-lg bg-surface p-7 pt-10 sm:p-9 sm:pt-11">
           <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-2xl font-black">{mode === "signup" ? "Create account" : "Sign in"}</h2>
+            <h2 className="text-2xl font-black">
+              {mode === "signup" ? "Create account" : "Sign in"}
+            </h2>
             <LockKey size={25} weight="duotone" className="text-purple" />
           </div>
           <div className="mb-5 flex gap-2" role="tablist" aria-label="Sign in or create account">
@@ -207,7 +210,7 @@ export default function Login() {
             )}
             <label className="block">
               <span className="toon-label">Email address</span>
-              <input
+              <Input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 type="email"
@@ -219,15 +222,13 @@ export default function Login() {
             <label className="block">
               <span className="toon-label">Password</span>
               <span className="relative block">
-                <input
+                <Input
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   type={showPassword ? "text" : "password"}
                   autoComplete="new-password"
                   minLength={mode === "signup" ? 6 : undefined}
-                  placeholder={
-                    mode === "signup" ? "At least 6 characters" : "Enter your password"
-                  }
+                  placeholder={mode === "signup" ? "At least 6 characters" : "Enter your password"}
                   className="toon-input pr-12"
                   required
                 />
@@ -313,7 +314,6 @@ export default function Login() {
               then restart the dev server. See .env.example.
             </div>
           )}
-
         </div>
       </div>
     </div>

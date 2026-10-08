@@ -52,6 +52,7 @@ import ProfileView from "../components/ProfileView";
 import ProjectView from "../components/ProjectView";
 import SettingsView from "../components/SettingsView";
 import { Button, ButtonLabel } from "../components/Button";
+import Input, { getInputClassName } from "../components/Input";
 import { getAppRepo, getProfileRepo } from "../data/factory";
 import { indexProfiles } from "../data/profileLinks";
 import { fileToThumbnailDataUrl } from "../utils/images";
@@ -253,6 +254,13 @@ export default function Store() {
   const trophies = useMemo(() => topThreeTrophies(profiles, fullApps), [profiles, fullApps]);
   const projectTrophies = useMemo(() => topThreeProjectTrophies(fullApps), [fullApps]);
   const rankedProjects = useMemo(() => rankProjects(fullApps), [fullApps]);
+  const projectRanks = useMemo(() => {
+    const ranks = new Map<string, number>();
+    rankedProjects.slice(0, 10).forEach((app, index) => {
+      if (app.votes > 0) ranks.set(app.id, index + 1);
+    });
+    return ranks;
+  }, [rankedProjects]);
   const [boardTab, setBoardTab] = useState<"developers" | "projects">("developers");
 
   useEffect(() => {
@@ -1250,10 +1258,10 @@ export default function Store() {
                 weight="bold"
                 className="absolute left-5 top-1/2 -translate-y-1/2"
               />
-              <input
+              <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                className="toon-input py-4 pl-14"
+                variant="search"
                 placeholder="Search projects, descriptions, or developers"
               />
             </label>
@@ -1275,8 +1283,7 @@ export default function Store() {
                 </div>
                 <label>
                   <span className="toon-label">Project name</span>
-                  <input
-                    className="toon-input"
+                  <Input
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
                     required
@@ -1306,7 +1313,7 @@ export default function Store() {
                 <label>
                   <span className="toon-label">Category</span>
                   <select
-                    className="toon-input"
+                    className={getInputClassName()}
                     value={categoryInput}
                     onChange={(event) => setCategoryInput(event.target.value as Category)}
                   >
@@ -1324,8 +1331,8 @@ export default function Store() {
                       weight="bold"
                       className="absolute left-4 top-1/2 -translate-y-1/2"
                     />
-                    <input
-                      className="toon-input pl-12"
+                    <Input
+                      className="pl-12"
                       type="url"
                       value={url}
                       onChange={(event) => {
@@ -1349,8 +1356,8 @@ export default function Store() {
                       weight="bold"
                       className="absolute left-4 top-1/2 -translate-y-1/2"
                     />
-                    <input
-                      className="toon-input pl-12"
+                    <Input
+                      className="pl-12"
                       type="url"
                       value={repoUrl}
                       onChange={(event) => {
@@ -1817,7 +1824,7 @@ export default function Store() {
                         }}
                         profiles={profilesLookup}
                         trophies={trophies}
-                        projectTrophies={projectTrophies}
+                        projectRanks={projectRanks}
                         onOpenProfile={openProfile}
                         onOpenApp={(id) => openApp(id)}
                         onEditApp={(id) => openApp(id, true)}
@@ -1846,10 +1853,10 @@ export default function Store() {
                       weight="bold"
                       className="absolute left-4 top-1/2 -translate-y-1/2 text-muted"
                     />
-                    <input
+                    <Input
                       value={devQuery}
                       onChange={(event) => setDevQuery(event.target.value)}
-                      className="toon-input py-2.5 pl-11 text-sm"
+                      className="py-2.5 pl-11 text-sm"
                       placeholder="Search name or role…"
                     />
                   </label>

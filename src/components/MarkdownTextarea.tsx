@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, type TextareaHTMLAttributes } from "react";
+import { getInputClassName } from "./Input";
 
 type MarkdownTextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
   value: string;
@@ -24,7 +25,10 @@ export default function MarkdownTextarea({
       {...props}
       ref={textareaRef}
       value={value}
-      className={`toon-input markdown-textarea resize-none overflow-y-auto ${className}`}
+      className={getInputClassName(
+        "default",
+        `markdown-textarea resize-none overflow-y-auto ${className}`,
+      )}
     />
   );
 }

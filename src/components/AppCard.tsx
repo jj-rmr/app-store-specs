@@ -1,7 +1,13 @@
 import React, { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { ArrowRight, ChatCircleDots, Heart, PencilSimple, X } from "@phosphor-icons/react";
-import Avatar from "./Avatar";
+import {
+  ArrowRight,
+  ChatCircleDots,
+  Heart,
+  PencilSimple,
+  User as UserIcon,
+  X,
+} from "@phosphor-icons/react";
 import Comments from "./Comments";
 import MentionText from "./MentionText";
 import TrophyMark from "./TrophyMark";
@@ -9,7 +15,7 @@ import UploadStamp from "./UploadStamp";
 import VotersDialog from "./VotersDialog";
 import { profileForApp } from "../data/profileLinks";
 import type { AppItem, Profile, User } from "../data/types";
-import { Button, ButtonLink } from "./Button";
+import { Button, ButtonChip, ButtonLink } from "./Button";
 
 type AppCardProps = {
   app: AppItem;
@@ -21,7 +27,7 @@ type AppCardProps = {
   onCommentAdded: (appId: string, count: number) => void;
   profiles: Map<string, Profile>;
   trophies: Map<string, 1 | 2 | 3>;
-  projectTrophies: Map<string, 1 | 2 | 3>;
+  projectRanks: Map<string, number>;
   onOpenProfile: (profileId: string) => void;
   onOpenApp: (appId: string) => void;
   onEditApp: (appId: string) => void;
@@ -37,7 +43,7 @@ export default function AppCard({
   onCommentAdded,
   profiles,
   trophies,
-  projectTrophies,
+  projectRanks,
   onOpenProfile,
   onOpenApp,
   onEditApp,
@@ -58,6 +64,12 @@ export default function AppCard({
   const panelId = `comments-${app.id}`;
   const creatorProfile = profileForApp(app, profiles);
   const creatorName = creatorProfile ? creatorProfile.name : app.creator;
+  const collaborators = (app.collaborators ?? [])
+    .map((id) => profiles.get(id))
+    .filter((profile): profile is Profile => Boolean(profile));
+  const projectRank = projectRanks.get(app.id);
+  const trophyPlace =
+    projectRank === 1 || projectRank === 2 || projectRank === 3 ? projectRank : undefined;
   const isOwner = user && (app.creatorId ? app.creatorId === user.id : app.creator === user.name);
   const pressPos = useRef<{ x: number; y: number } | null>(null);
 
@@ -111,13 +123,59 @@ export default function AppCard({
               <button onClick={() => onOpenApp(app.id)} className="text-left hover:underline">
                 {app.title}
               </button>
-              {projectTrophies.get(app.id) !== undefined && (
-                <TrophyMark place={projectTrophies.get(app.id) as 1 | 2 | 3} size={22} />
-              )}
+              {projectRank !== undefined &&
+                (trophyPlace !== undefined ? (
+                  <TrophyMark place={trophyPlace} size={20} />
+                ) : (
+                  <ButtonChip className="ml-2" tone="muted">
+                    #{projectRank} App
+                  </ButtonChip>
+                ))}
             </h3>
           </div>
         </div>
-        <p className="mt-2 text-sm leading-6 text-muted">
+        <div className="mt-2 overflow-hidden text-xs leading-5">
+          <p className="max-h-full overflow-hidden">
+            <UserIcon
+              size={15}
+              weight="duotone"
+              className="mr-2 inline-block align-[-3px] text-muted"
+              aria-hidden="true"
+            />
+            {creatorProfile ? (
+              <Button
+                variant="text"
+                size="compact"
+                onClick={() => onOpenProfile(creatorProfile.id)}
+                className="text-left text-muted"
+                aria-label={`View ${creatorName}'s profile`}
+              >
+                {creatorName}
+              </Button>
+            ) : (
+              <span>{creatorName}</span>
+            )}
+            {collaborators.length > 0 && (
+              <>
+                <span className="mx-1">-</span>
+                {collaborators.map((profile, index) => (
+                  <React.Fragment key={profile.id}>
+                    {index > 0 && <span>, </span>}
+                    <Button
+                      variant="text"
+                      size="compact"
+                      className="text-muted"
+                      onClick={() => onOpenProfile(profile.id)}
+                    >
+                      {profile.name}
+                    </Button>
+                  </React.Fragment>
+                ))}
+              </>
+            )}
+          </p>
+        </div>
+        <p className="my-4 line-clamp-4 flex-1 text-sm leading-6 text-muted">
           <MentionText
             text={app.description}
             profiles={[...profiles.values()]}
@@ -208,7 +266,6 @@ export default function AppCard({
                 rel="noreferrer"
                 variant="outline-flat"
                 size="compact"
-                className=""
               >
                 Open app <ArrowRight size={14} weight="duotone" />
               </ButtonLink>
