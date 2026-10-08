@@ -28,7 +28,7 @@ future database/server swap mechanical. Nothing here changes localhost behavior.
 4. Implement the endpoint contract (thin server or Supabase Edge Functions):
    - `GET /auth/session` → `{ user }` (401 when signed out)
    - `POST /auth/signin {email, password}` → `{ user, token }`
-   - `POST /auth/signup {name, email, password}` → `{ user, token }`
+   - `POST /auth/signup {name, email, password}` → `{ user, token }` (existing email, case-insensitive → 409 `{ message }` naming the clash, never a second account)
    - `POST /auth/google {accessToken}` → `{ user, token, picture? }`.
      Server MUST fetch Google userinfo itself and match verified email → account.
      Never trust client-sent claims.
