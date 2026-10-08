@@ -24,6 +24,7 @@ import TrophyMark from "./TrophyMark";
 import Markdown from "./Markdown";
 import MarkdownTextarea from "./MarkdownTextarea";
 import { Button, ButtonLabel, ButtonLink } from "./Button";
+import Input, { getInputClassName } from "./Input";
 import { getAppRepo, getProfileRepo } from "../data/factory";
 import { profileIdForApp } from "../data/profileLinks";
 import { fileToThumbnailDataUrl } from "../utils/images";
@@ -649,8 +650,7 @@ export default function ProjectView({
           </div>
           <label>
             <span className="toon-label">Project name</span>
-            <input
-              className="toon-input"
+            <Input
               value={eTitle}
               onChange={(e) => setETitle(e.target.value)}
               required
@@ -661,7 +661,7 @@ export default function ProjectView({
           <label>
             <span className="toon-label">Category</span>
             <select
-              className="toon-input"
+              className={getInputClassName()}
               value={eCategory}
               onChange={(e) => setECategory(e.target.value as Category)}
             >
@@ -698,8 +698,8 @@ export default function ProjectView({
                 weight="bold"
                 className="absolute left-4 top-1/2 -translate-y-1/2"
               />
-              <input
-                className="toon-input pl-12"
+              <Input
+                className="pl-12"
                 type="url"
                 value={eUrl}
                 onChange={(e) => {
@@ -721,8 +721,8 @@ export default function ProjectView({
                 weight="bold"
                 className="absolute left-4 top-1/2 -translate-y-1/2"
               />
-              <input
-                className="toon-input pl-12"
+              <Input
+                className="pl-12"
                 type="url"
                 value={eRepoUrl}
                 onChange={(e) => {

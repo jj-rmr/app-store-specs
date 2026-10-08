@@ -181,24 +181,6 @@ nav {
   box-shadow: 4px 4px 0 var(--color-ink-shadow);
 }
 
-@utility toon-input {
-  @apply w-full rounded-2xl border-[3px] bg-surface px-4 py-3 outline-none transition-[border-color] duration-150;
-  border-color: var(--color-ink);
-  box-shadow: 4px 4px 0 var(--color-ink);
-}
-
-.toon-input:hover {
-  border-color: var(--color-purple);
-}
-
-.toon-input:focus {
-  border-color: var(--color-purple);
-}
-
-.toon-input:active {
-  border-color: var(--color-purple);
-}
-
 .markdown-textarea {
   max-height: min(60vh, 32rem);
   scrollbar-color: var(--color-yellow) transparent;

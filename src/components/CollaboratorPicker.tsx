@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { MagnifyingGlass, X } from "@phosphor-icons/react";
 import Avatar from "./Avatar";
+import Input from "./Input";
 import type { Profile } from "../data/types";
 
 type CollaboratorPickerProps = {
@@ -10,7 +11,11 @@ type CollaboratorPickerProps = {
 };
 
 /** Explicit collaborators box: search developers, tick to add, chip to remove. */
-export default function CollaboratorPicker({ profiles, selected, onChange }: CollaboratorPickerProps) {
+export default function CollaboratorPicker({
+  profiles,
+  selected,
+  onChange,
+}: CollaboratorPickerProps) {
   const [filter, setFilter] = useState("");
   const selectedSet = useMemo(() => new Set(selected), [selected]);
 
@@ -70,12 +75,13 @@ export default function CollaboratorPicker({ profiles, selected, onChange }: Col
           weight="bold"
           className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
         />
-        <input
+        <Input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Search developers…"
           autoComplete="off"
-          className="toon-input py-2 pl-10 text-sm"
+          className="py-2 pl-10 text-sm"
+          variant="ghost"
         />
       </label>
       <ul className="mt-2 max-h-52 space-y-1 overflow-y-auto">

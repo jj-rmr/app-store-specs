@@ -11,21 +11,21 @@ const TIERS: Record<
     mid: "#F5C518",
     dark: "#8A6100",
     glow: "rgba(245, 197, 24, 0.6)",
-    label: "Ranked #1 developer",
+    label: "Ranked #1",
   },
   2: {
     light: "#FFFFFF",
     mid: "#C3CAD6",
     dark: "#59616F",
     glow: "rgba(195, 202, 214, 0.6)",
-    label: "Ranked #2 developer",
+    label: "Ranked #2",
   },
   3: {
     light: "#F9D3A6",
     mid: "#D08A4A",
     dark: "#6E3F1D",
     glow: "rgba(208, 138, 74, 0.55)",
-    label: "Ranked #3 developer",
+    label: "Ranked #3",
   },
 };
 

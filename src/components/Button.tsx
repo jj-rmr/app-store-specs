@@ -3,6 +3,7 @@ import type {
   ButtonHTMLAttributes,
   LabelHTMLAttributes,
   ReactNode,
+  HTMLAttributes,
 } from "react";
 
 export type ButtonVariant =
@@ -14,7 +15,8 @@ export type ButtonVariant =
   | "outline-flat"
   | "ghost"
   | "filter"
-  | "vote";
+  | "vote"
+  | "text";
 
 type ButtonSize = "default" | "small" | "compact";
 
@@ -34,6 +36,10 @@ type ButtonLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> &
   };
 
 type ButtonLabelProps = LabelHTMLAttributes<HTMLLabelElement> & ButtonStyleProps;
+type ButtonChipProps = HTMLAttributes<HTMLSpanElement> &
+  Pick<ButtonStyleProps, "className" | "children"> & {
+    tone?: "default" | "gold" | "silver" | "bronze" | "muted";
+  };
 
 const commonClasses =
   "inline-flex items-center justify-center gap-2 font-black focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-yellow focus-visible:ring-offset-2";
@@ -52,6 +58,7 @@ const variantClasses: Record<ButtonVariant, string> = {
   filter:
     "min-w-max rounded-md border-2 border-ink bg-transparent text-ink transition-colors aria-pressed:bg-purple aria-pressed:text-surface aria-pressed:hover:bg-purple hover:bg-cream disabled:cursor-not-allowed disabled:opacity-60",
   vote: "gap-1 transition-colors hover:text-purple aria-pressed:text-vote aria-pressed:hover:text-vote disabled:cursor-not-allowed disabled:opacity-60",
+  text: "inline border-0 bg-transparent p-0 font-inherit text-inherit transition-colors hover:text-purple disabled:cursor-not-allowed disabled:opacity-60",
 };
 
 const raisedShellClasses = [
@@ -76,16 +83,13 @@ const raisedShellClasses = [
   "disabled:cursor-not-allowed",
 ].join(" ");
 
-// Fixed at the flush position. Never moves, so it stays visually in place.
 const raisedSideClasses = [
   "absolute",
   "z-0",
 
-  // bottom-right edge is fixed; this is what stays "in place"
   "right-0",
   "bottom-0",
 
-  // top-left edge tracks the face, so the shadow is always face + the raise offset
   "top-1",
   "left-1",
 
@@ -98,23 +102,18 @@ const raisedSideClasses = [
   "duration-100",
   "ease-out",
 
-  // hover: face at (0,0), shadow grows to full shell size (8px extra on right and bottom)
   "group-hover:top-0",
   "group-hover:left-0",
   "group-hover:rounded-tr-3xl",
   "group-hover:rounded-bl-3xl",
 
-  // active: face flush at (8,8), shadow shrinks to exactly the face and is hidden
   "group-active:top-2",
   "group-active:left-2",
 
-  // disabled: same as flush
   "group-disabled:top-2",
   "group-disabled:left-2",
 ].join(" ");
 
-// The face sits at the fully raised position (0,0) in flow, then is pushed
-// down-right toward the shadow: 4px at rest, 0 on hover, 8px (flush) on active.
 const raisedFaceClasses = [
   "relative",
   "z-10",
@@ -127,7 +126,6 @@ const raisedFaceClasses = [
   "border-ink",
   "font-black",
 
-  // rest: slightly raised
   "translate-x-1",
   "translate-y-1",
 
@@ -135,16 +133,13 @@ const raisedFaceClasses = [
   "duration-100",
   "ease-out",
 
-  // hover: fully raised (up-left)
   "group-hover:translate-x-0",
   "group-hover:translate-y-0",
 
-  // active: flush with the shadow
   "group-active:translate-x-2",
   "group-active:translate-y-2",
   "group-active:brightness-90",
 
-  // disabled: flush, no hover/active effects
   "group-disabled:translate-x-2",
   "group-disabled:translate-y-2",
   "group-disabled:brightness-100",
@@ -186,7 +181,7 @@ function buttonClassName(
         : "";
 
   return [
-    commonClasses,
+    variant === "text" ? commonClasses.replace("inline-flex", "inline") : commonClasses,
     variantClasses[variant],
     sizeClass,
     fullWidth ? "w-full" : "",
@@ -265,5 +260,30 @@ export function ButtonLabel({
     <label {...props} className={buttonClassName(variant, size, className, fullWidth)}>
       {buttonContents(variant, size, fullWidth, children)}
     </label>
+  );
+}
+
+const chipToneClasses = {
+  default: "bg-lavender text-ink",
+  gold: "bg-yellow text-ink",
+  silver: "bg-[#c0c0c0] text-ink",
+  bronze: "bg-[#a85d1a] text-surface",
+  muted: "bg-muted text-surface",
+} satisfies Record<NonNullable<ButtonChipProps["tone"]>, string>;
+
+export function ButtonChip({ className, children, tone = "default", ...props }: ButtonChipProps) {
+  return (
+    <span
+      {...props}
+      className={[
+        "inline-flex items-center rounded-full px-2 py-0.5 align-middle text-[10px] font-black uppercase",
+        chipToneClasses[tone],
+        className ?? "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      {children}
+    </span>
   );
 }

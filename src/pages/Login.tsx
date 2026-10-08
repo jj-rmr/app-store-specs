@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Eye, EyeSlash, LockKey, Sparkle } from "@phospho
 import { useAuth } from "../auth/AuthProvider";
 import Brand from "../components/Brand";
 import { Button } from "../components/Button";
+import Input from "../components/Input";
 import { getProfileRepo } from "../data/factory";
 import { getSupabase } from "../data/supabase/client";
 import type { GoogleAccount } from "../data/repositories";
@@ -160,25 +161,24 @@ export default function Login() {
           <form onSubmit={submit} className="space-y-5">
             <label className="block">
               <span className="toon-label">Email address</span>
-              <input
+              <Input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 type="email"
                 autoComplete="email"
-                className="toon-input"
                 required
               />
             </label>
             <label className="block">
               <span className="toon-label">Password</span>
               <span className="relative block">
-                <input
+                <Input
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   placeholder="Enter your password"
-                  className="toon-input pr-12"
+                  className="pr-12"
                   required
                 />
                 <button

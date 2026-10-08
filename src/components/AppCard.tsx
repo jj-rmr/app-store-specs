@@ -1,13 +1,19 @@
 import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { ArrowRight, ChatCircleDots, Heart, PencilSimple, X } from "@phosphor-icons/react";
-import Avatar from "./Avatar";
+import {
+  ArrowRight,
+  ChatCircleDots,
+  Heart,
+  PencilSimple,
+  User as UserIcon,
+  X,
+} from "@phosphor-icons/react";
 import Comments from "./Comments";
 import MentionText from "./MentionText";
-import TrophyMark from "./TrophyMark";
 import { profileForApp } from "../data/profileLinks";
 import type { AppItem, Profile, User } from "../data/types";
-import { Button, ButtonLink } from "./Button";
+import { Button, ButtonChip, ButtonLink } from "./Button";
+import TrophyMark from "./TrophyMark";
 
 type AppCardProps = {
   app: AppItem;
@@ -19,7 +25,7 @@ type AppCardProps = {
   onCommentAdded: (appId: string, count: number) => void;
   profiles: Map<string, Profile>;
   trophies: Map<string, 1 | 2 | 3>;
-  projectTrophies: Map<string, 1 | 2 | 3>;
+  projectRanks: Map<string, number>;
   onOpenProfile: (profileId: string) => void;
   onOpenApp: (appId: string) => void;
   onEditApp: (appId: string) => void;
@@ -35,7 +41,7 @@ export default function AppCard({
   onCommentAdded,
   profiles,
   trophies,
-  projectTrophies,
+  projectRanks,
   onOpenProfile,
   onOpenApp,
   onEditApp,
@@ -56,10 +62,16 @@ export default function AppCard({
   const panelId = `comments-${app.id}`;
   const creatorProfile = profileForApp(app, profiles);
   const creatorName = creatorProfile ? creatorProfile.name : app.creator;
+  const collaborators = (app.collaborators ?? [])
+    .map((id) => profiles.get(id))
+    .filter((profile): profile is Profile => Boolean(profile));
+  const projectRank = projectRanks.get(app.id);
+  const trophyPlace =
+    projectRank === 1 || projectRank === 2 || projectRank === 3 ? projectRank : undefined;
   const isOwner = user && (app.creatorId ? app.creatorId === user.id : app.creator === user.name);
 
   return (
-    <article className="toon-card paper-note rounded-lg p-4 rotate-1">
+    <article className="toon-card paper-note flex h-full flex-col rounded-lg p-4 rotate-1">
       <button
         onClick={() => onOpenApp(app.id)}
         aria-label={`Open ${app.title} details`}
@@ -83,7 +95,7 @@ export default function AppCard({
           </div>
         )}
       </button>
-      <div>
+      <div className="flex flex-1 flex-col">
         <div className="mt-5 flex items-start justify-between gap-3 sm:mt-0">
           <div>
             <span className="text-[10px] font-black uppercase text-purple">{app.category}</span>
@@ -91,58 +103,66 @@ export default function AppCard({
               <button onClick={() => onOpenApp(app.id)} className="text-left hover:underline">
                 {app.title}
               </button>
-              {projectTrophies.get(app.id) !== undefined && (
-                <TrophyMark place={projectTrophies.get(app.id) as 1 | 2 | 3} size={22} />
-              )}
+              {projectRank !== undefined &&
+                (trophyPlace !== undefined ? (
+                  <TrophyMark place={trophyPlace} size={20} />
+                ) : (
+                  <ButtonChip className="ml-2" tone="muted">
+                    #{projectRank} App
+                  </ButtonChip>
+                ))}
             </h3>
           </div>
         </div>
-        <p className="mt-2 text-sm leading-6 text-muted">
+        <div className="mt-2 overflow-hidden text-xs leading-5">
+          <p className="max-h-full overflow-hidden">
+            <UserIcon
+              size={15}
+              weight="duotone"
+              className="mr-2 inline-block align-[-3px] text-muted"
+              aria-hidden="true"
+            />
+            {creatorProfile ? (
+              <Button
+                variant="text"
+                size="compact"
+                onClick={() => onOpenProfile(creatorProfile.id)}
+                className="text-left text-muted"
+                aria-label={`View ${creatorName}'s profile`}
+              >
+                {creatorName}
+              </Button>
+            ) : (
+              <span>{creatorName}</span>
+            )}
+            {collaborators.length > 0 && (
+              <>
+                <span className="mx-1">-</span>
+                {collaborators.map((profile, index) => (
+                  <React.Fragment key={profile.id}>
+                    {index > 0 && <span>, </span>}
+                    <Button
+                      variant="text"
+                      size="compact"
+                      className="text-muted"
+                      onClick={() => onOpenProfile(profile.id)}
+                    >
+                      {profile.name}
+                    </Button>
+                  </React.Fragment>
+                ))}
+              </>
+            )}
+          </p>
+        </div>
+        <p className="my-4 line-clamp-4 flex-1 text-sm leading-6 text-muted">
           <MentionText
             text={app.description}
             profiles={[...profiles.values()]}
             onOpenProfile={onOpenProfile}
           />
         </p>
-        {(() => {
-          const collabs = (app.collaborators ?? [])
-            .map((id) => profiles.get(id))
-            .filter((p): p is Profile => Boolean(p));
-          if (!collabs.length) return null;
-          return (
-            <p className="mt-2 text-xs font-black">
-              <span className="uppercase text-muted">Collaborators: </span>
-              {collabs.map((p, i) => (
-                <span key={p.id}>
-                  {i > 0 && <span className="text-muted">, </span>}
-                  <button
-                    onClick={() => onOpenProfile(p.id)}
-                    className="underline decoration-2 underline-offset-4"
-                  >
-                    {p.name}
-                  </button>
-                </span>
-              ))}
-            </p>
-          );
-        })()}
-        <p className="mt-3 mb-2 text-xs font-black">
-          by{" "}
-          {creatorProfile ? (
-            <button
-              onClick={() => onOpenProfile(creatorProfile.id)}
-              className="underline decoration-2 underline-offset-4"
-            >
-              {creatorName}
-            </button>
-          ) : (
-            creatorName
-          )}
-          {creatorProfile && trophies.get(creatorProfile.id) !== undefined && (
-            <TrophyMark place={trophies.get(creatorProfile.id) as 1 | 2 | 3} size={16} />
-          )}
-        </p>
-        <div className="mt-7 flex min-h-8 items-center gap-4 border-t-2 border-dashed border-divider pt-4">
+        <div className="mt-auto flex min-h-8 items-center gap-4 border-t-2 border-dashed border-divider pt-3">
           <span className="flex gap-2">
             <Button variant="vote" onClick={() => onVote(app.id)} aria-pressed={voted}>
               <Heart size={20} weight={voted ? "fill" : "duotone"} />
@@ -178,7 +198,6 @@ export default function AppCard({
                 rel="noreferrer"
                 variant="outline-flat"
                 size="compact"
-                className=""
               >
                 Open app <ArrowRight size={14} weight="duotone" />
               </ButtonLink>

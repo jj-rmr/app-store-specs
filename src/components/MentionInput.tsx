@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import Avatar from "./Avatar";
+import Input from "./Input";
 import type { Profile } from "../data/types";
 
 type MentionInputProps = {
@@ -84,7 +85,7 @@ export default function MentionInput({
 
   return (
     <span className="relative block">
-      <input
+      <Input
         ref={inputRef}
         value={value}
         onChange={(e) => {
@@ -116,7 +117,7 @@ export default function MentionInput({
         maxLength={maxLength}
         required={required}
         autoComplete="off"
-        className={className ?? "toon-input"}
+        className={className}
       />
       {open && suggestions.length > 0 && (
         <ul
