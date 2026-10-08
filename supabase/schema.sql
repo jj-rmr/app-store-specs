@@ -102,6 +102,27 @@ alter table comment_likes enable row level security;
 alter table milestones enable row level security;
 alter table milestone_cheers enable row level security;
 
+-- Policies are dropped first because Postgres has no CREATE POLICY IF NOT
+-- EXISTS — this keeps the whole file safe to rerun on an existing database.
+drop policy if exists "public read profiles" on profiles;
+drop policy if exists "public read apps" on apps;
+drop policy if exists "public read app_votes" on app_votes;
+drop policy if exists "public read comments" on comments;
+drop policy if exists "public read comment_likes" on comment_likes;
+drop policy if exists "public read milestones" on milestones;
+drop policy if exists "public read milestone_cheers" on milestone_cheers;
+drop policy if exists "owners manage profiles" on profiles;
+drop policy if exists "owners manage apps" on apps;
+drop policy if exists "signed-in insert app_votes" on app_votes;
+drop policy if exists "own delete app_votes" on app_votes;
+drop policy if exists "signed-in insert comments" on comments;
+drop policy if exists "own delete comments" on comments;
+drop policy if exists "signed-in insert comment_likes" on comment_likes;
+drop policy if exists "own delete comment_likes" on comment_likes;
+drop policy if exists "signed-in insert milestones" on milestones;
+drop policy if exists "signed-in insert milestone_cheers" on milestone_cheers;
+drop policy if exists "own delete milestone_cheers" on milestone_cheers;
+
 -- Public read for all content tables.
 create policy "public read profiles" on profiles for select using (true);
 create policy "public read apps" on apps for select using (true);
@@ -140,41 +161,61 @@ create policy "own delete milestone_cheers" on milestone_cheers
 
 -- ── Input validation (mirrors the repo-layer limits) ─────────────────────
 -- Existing databases get these from migration_constraints.sql instead.
+-- Drops first so this file stays rerunnable like the policies above.
+alter table apps drop constraint if exists apps_title_length;
 alter table apps add constraint apps_title_length
   check (char_length(title) between 1 and 80);
+alter table apps drop constraint if exists apps_description_length;
 alter table apps add constraint apps_description_length
   check (char_length(description) between 1 and 280);
+alter table apps drop constraint if exists apps_docs_length;
 alter table apps add constraint apps_docs_length
   check (docs is null or char_length(docs) <= 50000);
+alter table apps drop constraint if exists apps_category_valid;
 alter table apps add constraint apps_category_valid
   check (category in ('Education', 'Productivity', 'Games', 'Creative'));
+alter table apps drop constraint if exists apps_votes_nonnegative;
 alter table apps add constraint apps_votes_nonnegative
   check (votes >= 0);
+alter table apps drop constraint if exists apps_url_protocol;
 alter table apps add constraint apps_url_protocol
   check (url is null or url ilike 'http://%' or url ilike 'https://%');
+alter table apps drop constraint if exists apps_repo_url_protocol;
 alter table apps add constraint apps_repo_url_protocol
   check (repo_url is null or repo_url ilike 'http://%' or repo_url ilike 'https://%');
 
+alter table comments drop constraint if exists comments_body_length;
 alter table comments add constraint comments_body_length
   check (char_length(body) between 1 and 500);
+alter table comments drop constraint if exists comments_likes_nonnegative;
 alter table comments add constraint comments_likes_nonnegative
   check (likes >= 0);
 
+alter table milestones drop constraint if exists milestones_body_length;
 alter table milestones add constraint milestones_body_length
   check (char_length(body) between 1 and 280);
+alter table milestones drop constraint if exists milestones_cheers_nonnegative;
 alter table milestones add constraint milestones_cheers_nonnegative
   check (cheers >= 0);
 
+alter table profiles drop constraint if exists profiles_name_length;
 alter table profiles add constraint profiles_name_length
   check (char_length(name) between 1 and 40);
+alter table profiles drop constraint if exists profiles_role_length;
 alter table profiles add constraint profiles_role_length
   check (char_length(role) between 1 and 80);
+alter table profiles drop constraint if exists profiles_bio_length;
 alter table profiles add constraint profiles_bio_length
   check (char_length(bio) <= 280);
+alter table profiles drop constraint if exists profiles_color_valid;
 alter table profiles add constraint profiles_color_valid
   check (color in ('yellow', 'mint', 'pink', 'sky', 'lavender', 'purple', 'paper', 'surface'));
+alter table profiles drop constraint if exists profiles_theme_valid;
 alter table profiles add constraint profiles_theme_valid
   check (theme is null or theme in ('pink', 'yellow', 'mint', 'sky', 'lavender', 'purple', 'black'));
+alter table profiles drop constraint if exists profiles_palette_valid;
+alter table profiles add constraint profiles_palette_valid
+  check (palette is null or palette in ('candy', 'ocean', 'sunset', 'forest', 'mono', 'bubblegum', 'citrus', 'grape', 'midnight'));
 
 -- profiles.name stays non-unique on purpose: duplicates are legal and the
 -- claim/merge flow reconciles them. screenshots/collaborators stay schemaless.
