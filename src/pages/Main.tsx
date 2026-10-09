@@ -67,6 +67,7 @@ export default function Main() {
       "/dashboard",
       "/apps",
       "/builders",
+      "/feed",
       "/community",
       "/leaderboard",
       "/profile",

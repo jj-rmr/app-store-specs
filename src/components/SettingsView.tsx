@@ -163,7 +163,7 @@ export default function SettingsView({
             <h2 className="text-2xl font-black">Demo data</h2>
           </div>
           <p className="mt-2 text-sm font-bold text-muted">
-            Clear locally stored projects, votes, feedback, and wall updates on this browser. Your
+            Clear locally stored projects, votes, feedback, and Feed posts on this browser. Your
             account stays signed in.
           </p>
           {!armReset ? (

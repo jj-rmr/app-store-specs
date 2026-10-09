@@ -94,7 +94,7 @@ export default function CollaboratorPicker({
                   type="checkbox"
                   checked={checked}
                   onChange={() => toggle(p.id)}
-                  className="h-4 w-4 shrink-0 accent-[#6558bd]"
+                  className="h-4 w-4 shrink-0 accent-purple"
                 />
                 <Avatar name={p.name} color={p.color} imageUrl={p.imageUrl} size="sm" />
                 <span className="min-w-0">

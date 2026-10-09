@@ -116,22 +116,21 @@ export default function AppCard({
         )}
       </button>
       <div className="flex flex-1 flex-col">
-        <div className="mt-5 flex items-start justify-between gap-3 sm:mt-0">
-          <div>
-            <span className="text-[10px] font-black uppercase text-purple">{app.category}</span>
-            <h3 className="text-xl font-black">
-              <button onClick={() => onOpenApp(app.id)} className="text-left hover:underline">
-                {app.title}
-              </button>
+        <div className="mt-2 flex flex-col items-start gap-3">
+          <span className="text-[10px] font-black uppercase text-purple">{app.category}</span>
+          <div className="flex w-full flex-row justify-between items-center">
+            <div className="flex gap-1">
+              <h3 className="text-xl font-black">{app.title} </h3>
               {projectRank !== undefined &&
                 (trophyPlace !== undefined ? (
-                  <TrophyMark place={trophyPlace} size={20} />
+                  <TrophyMark place={trophyPlace} size={24} />
                 ) : (
                   <ButtonChip className="ml-2" tone="muted">
                     #{projectRank} App
                   </ButtonChip>
                 ))}
-            </h3>
+            </div>
+            <UploadStamp createdAt={app.createdAt} />
           </div>
         </div>
         <div className="mt-2 overflow-hidden text-xs leading-5">
@@ -175,56 +174,14 @@ export default function AppCard({
             )}
           </p>
         </div>
-        <p className="my-4 line-clamp-4 flex-1 text-sm leading-6 text-muted">
+        <p className="my-4 line-clamp-4 flex-1 text-xs text-justify text-pretty leading-6 text-muted/75">
           <MentionText
             text={app.description}
             profiles={[...profiles.values()]}
             onOpenProfile={onOpenProfile}
           />
         </p>
-        <div aria-hidden="true" className="flex-1" />
-        <p className="mt-3 mb-1 text-xs font-black">
-          by{" "}
-          {creatorProfile ? (
-            <button
-              onClick={() => onOpenProfile(creatorProfile.id)}
-              className="underline decoration-2 underline-offset-4"
-            >
-              {creatorName}
-            </button>
-          ) : (
-            creatorName
-          )}
-          {creatorProfile && trophies.get(creatorProfile.id) !== undefined && (
-            <TrophyMark place={trophies.get(creatorProfile.id) as 1 | 2 | 3} size={16} />
-          )}
-        </p>
-        {(() => {
-          const collabs = (app.collaborators ?? [])
-            .map((id) => profiles.get(id))
-            .filter((p): p is Profile => Boolean(p));
-          if (!collabs.length) return null;
-          return (
-            <p className="mt-1 text-xs font-black">
-              <span className="uppercase text-muted">Collaborators: </span>
-              {collabs.map((p, i) => (
-                <span key={p.id}>
-                  {i > 0 && <span className="text-muted">, </span>}
-                  <button
-                    onClick={() => onOpenProfile(p.id)}
-                    className="underline decoration-2 underline-offset-4"
-                  >
-                    {p.name}
-                  </button>
-                </span>
-              ))}
-            </p>
-          );
-        })()}
-        <div className="mb-2">
-          <UploadStamp createdAt={app.createdAt} />
-        </div>
-        <div className="mt-7 flex min-h-8 items-center gap-4 border-t-2 border-dashed border-divider pt-4">
+        <div className="flex min-h-8 items-center gap-4 border-t-2 border-dashed border-divider pt-4">
           <span className="flex items-center gap-2">
             <Button variant="vote" onClick={() => onVote(app.id)} aria-pressed={voted}>
               <Heart size={20} weight={voted ? "fill" : "duotone"} />

@@ -74,12 +74,7 @@ function DocsSection({ text, source }: { text: string; source?: string }) {
       </div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         {source && <p className="text-xs font-black uppercase text-muted">{source}</p>}
-        <Button
-          variant="surface"
-          size="small"
-          type="button"
-          onClick={download}
-        >
+        <Button variant="surface" size="small" type="button" onClick={download}>
           <DownloadSimple size={19} weight="bold" />
           Download documentation
         </Button>
@@ -119,8 +114,9 @@ export default function ProjectView({
   const [eShots, setEShots] = useState<string[]>([]);
   const [eDocs, setEDocs] = useState("");
   const [eDocsTab, setEDocsTab] = useState<"write" | "upload" | "repository" | "preview">("write");
-  const [eDocsPreviewReturnTab, setEDocsPreviewReturnTab] =
-    useState<"write" | "upload" | "repository">("write");
+  const [eDocsPreviewReturnTab, setEDocsPreviewReturnTab] = useState<
+    "write" | "upload" | "repository"
+  >("write");
   const [eDocsFile, setEDocsFile] = useState<string | null>(null);
   const [eRepositoryFiles, setERepositoryFiles] = useState<string[]>([]);
   const [eSelectedRepositoryFiles, setESelectedRepositoryFiles] = useState<string[]>([]);
@@ -816,92 +812,91 @@ export default function ProjectView({
               <div className="rounded-xl border-2 border-ink bg-surface p-4">
                 {!isGitHubRepositoryUrl(eDocsRepoUrl) ? (
                   <p role="status" className="text-sm font-bold text-body">
-                    Provide your GitHub project repo link first — paste it in the repo
-                    link field above, then come back here to choose Markdown files.
+                    Provide your GitHub project repo link first — paste it in the repo link field
+                    above, then come back here to choose Markdown files.
                   </p>
                 ) : (
                   <>
-                <p className="text-sm font-bold text-body">
-                  Choose Markdown files from the public GitHub repository in your repo
-                  link.
-                </p>
-                <Button
-                  variant="secondary"
-                  size="small"
-                  type="button"
-                  onClick={() => void eLoadRepositoryFiles()}
-                  disabled={eRepositoryFilesLoading || eRepositoryFilesImporting}
-                  className="mt-3"
-                >
-                  {eRepositoryFilesLoading
-                    ? "Loading repository files…"
-                    : "Load Markdown files"}
-                </Button>
-                {eRepositoryFilesError && (
-                  <p role="alert" className="mt-3 text-sm font-bold text-ink">
-                    {eRepositoryFilesError}
-                  </p>
-                )}
-                {eRepositoryFiles.length > 0 && (
-                  <>
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-sm font-black">
-                        {eSelectedRepositoryFiles.length} of {eRepositoryFiles.length} selected
-                      </p>
-                      <label className="flex items-center gap-2 text-sm font-black">
-                        <input
-                          type="checkbox"
-                          checked={eSelectedRepositoryFiles.length === eRepositoryFiles.length}
-                          onChange={(event) =>
-                            setESelectedRepositoryFiles(
-                              event.target.checked ? eRepositoryFiles : [],
-                            )
-                          }
-                        />
-                        Select all
-                      </label>
-                    </div>
-                    <div className="mt-2 max-h-64 space-y-1 overflow-y-auto rounded-lg border-2 border-divider p-2">
-                      {eRepositoryFiles.map((path) => (
-                        <label
-                          key={path}
-                          className="flex items-start gap-2 rounded-md px-2 py-1.5 text-sm font-bold hover:bg-cream"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={eSelectedRepositoryFiles.includes(path)}
-                            onChange={(event) =>
-                              setESelectedRepositoryFiles((selected) =>
-                                event.target.checked
-                                  ? [...selected, path]
-                                  : selected.filter((item) => item !== path),
-                              )
-                            }
-                            className="mt-1 shrink-0"
-                          />
-                          <span className="break-all">{path}</span>
-                        </label>
-                      ))}
-                    </div>
+                    <p className="text-sm font-bold text-body">
+                      Choose Markdown files from the public GitHub repository in your repo link.
+                    </p>
                     <Button
+                      variant="secondary"
                       size="small"
                       type="button"
-                      onClick={() => void eImportRepositoryFiles()}
-                      disabled={!eSelectedRepositoryFiles.length || eRepositoryFilesImporting}
+                      onClick={() => void eLoadRepositoryFiles()}
+                      disabled={eRepositoryFilesLoading || eRepositoryFilesImporting}
                       className="mt-3"
                     >
-                      {eRepositoryFilesImporting
-                        ? "Importing selected files…"
-                        : `Use ${eSelectedRepositoryFiles.length} selected file${eSelectedRepositoryFiles.length === 1 ? "" : "s"}`}
+                      {eRepositoryFilesLoading
+                        ? "Loading repository files…"
+                        : "Load Markdown files"}
                     </Button>
-                    <p className="mt-2 text-xs font-bold text-muted">
-                      Selected files are combined into project documentation (50,000-character
-                      limit).
-                    </p>
-                    </>
-                  )}
-                    </>
+                    {eRepositoryFilesError && (
+                      <p role="alert" className="mt-3 text-sm font-bold text-ink">
+                        {eRepositoryFilesError}
+                      </p>
                     )}
+                    {eRepositoryFiles.length > 0 && (
+                      <>
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                          <p className="text-sm font-black">
+                            {eSelectedRepositoryFiles.length} of {eRepositoryFiles.length} selected
+                          </p>
+                          <label className="flex items-center gap-2 text-sm font-black">
+                            <input
+                              type="checkbox"
+                              checked={eSelectedRepositoryFiles.length === eRepositoryFiles.length}
+                              onChange={(event) =>
+                                setESelectedRepositoryFiles(
+                                  event.target.checked ? eRepositoryFiles : [],
+                                )
+                              }
+                            />
+                            Select all
+                          </label>
+                        </div>
+                        <div className="mt-2 max-h-64 space-y-1 overflow-y-auto rounded-lg border-2 border-divider p-2">
+                          {eRepositoryFiles.map((path) => (
+                            <label
+                              key={path}
+                              className="flex items-start gap-2 rounded-md px-2 py-1.5 text-sm font-bold hover:bg-cream"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={eSelectedRepositoryFiles.includes(path)}
+                                onChange={(event) =>
+                                  setESelectedRepositoryFiles((selected) =>
+                                    event.target.checked
+                                      ? [...selected, path]
+                                      : selected.filter((item) => item !== path),
+                                  )
+                                }
+                                className="mt-1 shrink-0"
+                              />
+                              <span className="break-all">{path}</span>
+                            </label>
+                          ))}
+                        </div>
+                        <Button
+                          size="small"
+                          type="button"
+                          onClick={() => void eImportRepositoryFiles()}
+                          disabled={!eSelectedRepositoryFiles.length || eRepositoryFilesImporting}
+                          className="mt-3"
+                        >
+                          {eRepositoryFilesImporting
+                            ? "Importing selected files…"
+                            : `Use ${eSelectedRepositoryFiles.length} selected file${eSelectedRepositoryFiles.length === 1 ? "" : "s"}`}
+                        </Button>
+                        <p className="mt-2 text-xs font-bold text-muted">
+                          Selected files are combined into project documentation (50,000-character
+                          limit).
+                        </p>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             )}
             {eDocsTab === "preview" && (
@@ -922,10 +917,7 @@ export default function ProjectView({
             </p>
           )}
           <div className="flex flex-wrap gap-3 sm:col-span-2">
-            <Button
-              type="submit"
-              disabled={eSaving || eBusy}
-            >
+            <Button type="submit" disabled={eSaving || eBusy}>
               {eSaving ? "Saving…" : "Save changes"}
             </Button>
             <Button
@@ -1028,7 +1020,7 @@ export default function ProjectView({
             aria-modal="true"
             aria-label={`${app.title} screenshot full size`}
             onClick={() => setLightbox(null)}
-            className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-ink/80 p-4"
+            className="fixed inset-0 z-100 flex items-center justify-center overflow-y-auto bg-ink/80 p-4"
           >
             <div
               onClick={(e) => e.stopPropagation()}

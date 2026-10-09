@@ -23,7 +23,7 @@ export const APP_INFO = {
     },
     {
       title: "Notifications inbox",
-      body: "The bell collects comments, replies, upvotes, collaborator tags, new projects, and community updates — newest first, with sound chimes and delete-all.",
+      body: "The bell collects comments, replies, upvotes, collaborator tags, new projects, and Feed posts — newest first, with sound chimes and delete-all.",
     },
     {
       title: "Voters viewer",
@@ -34,8 +34,8 @@ export const APP_INFO = {
       body: "Tag developers on your project and they get notified — on the card, the project page, and in their inbox.",
     },
     {
-      title: "Milestones wall",
-      body: "Builders post progress updates on the Community page and the crowd cheers them on.",
+      title: "Community feed",
+      body: "Builders post progress updates in the Feed, reply in nested discussions, and cheer one another on.",
     },
     {
       title: "Leaderboards & trophies",

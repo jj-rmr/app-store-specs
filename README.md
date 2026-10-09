@@ -36,12 +36,13 @@ The UI only talks to repo interfaces (`src/data/repositories.ts`), so the storag
 
 - **Discover** — search/filter student projects; tap anywhere on a card to open it; upload stamps show freshness (`5m ago` → date after 24h)
 - **Feedback** — nested reply threads with likes; authors can delete their own comments/replies from the ⋯ menu
-- **Notifications inbox** — bell for comments, replies, upvotes, collaborator tags, new projects, and wall updates; newest-first with arrival topping, sounds, mark-read, and delete-all
+- **Notifications inbox** — bell for comments, replies, upvotes, collaborator tags, new projects, and Feed posts; newest-first with arrival topping, sounds, mark-read, and delete-all
 - **Voters viewer** — see exactly who upvoted any project, with profile links
 - **Collaborators** — tag developers (picker or @mentions); they get notified, including on re-tags after edits
 - **Profiles** — editable name/role/bio/photo, avatar colors, and a theme palette visitors see on the page
 - **Docs** — import READMEs from GitHub or upload `.md`, read long docs page by page
-- **Community** — milestones wall with cheers, developer leaderboard with trophies
+- **Feed** (`/feed`) — share project updates, cheer builders, and join nested comment threads; `/community` remains a compatible legacy route
+- **Leaderboard** — developers and projects ranked with trophies
 - **Settings** (`/settings`) — sound mute toggle with chime preview, local demo-data reset
 - **Accounts** — email/password signup, Google sign-in, duplicate-profile claiming, logout confirmation
 

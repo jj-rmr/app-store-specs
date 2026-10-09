@@ -18,13 +18,14 @@ export type ButtonVariant =
   | "vote"
   | "text";
 
-type ButtonSize = "default" | "small" | "compact";
+type ButtonSize = "default" | "small" | "compact" | "compact-icon";
 
 type ButtonStyleProps = {
   variant?: ButtonVariant;
   size?: ButtonSize;
   className?: string;
   fullWidth?: boolean;
+  fullHeight?: boolean;
   children?: ReactNode;
 };
 
@@ -54,7 +55,7 @@ const variantClasses: Record<ButtonVariant, string> = {
   "outline-flat":
     "min-w-max rounded-md border-2 border-ink bg-transparent text-ink transition-colors aria-pressed:bg-purple aria-pressed:text-surface aria-pressed:hover:bg-purple hover:bg-yellow disabled:cursor-not-allowed disabled:opacity-60",
   ghost:
-    "text-sm underline decoration-2 underline-offset-4 transition-colors hover:text-purple disabled:cursor-not-allowed disabled:opacity-60",
+    "text-sm decoration-2 transition-colors hover:text-purple disabled:cursor-not-allowed disabled:opacity-60",
   filter:
     "min-w-max rounded-md border-2 border-ink bg-transparent text-ink transition-colors aria-pressed:bg-purple aria-pressed:text-surface aria-pressed:hover:bg-purple hover:bg-cream disabled:cursor-not-allowed disabled:opacity-60",
   vote: "gap-1 transition-colors hover:text-purple aria-pressed:text-vote aria-pressed:hover:text-vote disabled:cursor-not-allowed disabled:opacity-60",
@@ -151,12 +152,14 @@ const sizeClasses: Record<ButtonSize, string> = {
   default: "px-5 py-3",
   small: "px-4 py-2 text-sm",
   compact: "px-3 py-1 text-xs",
+  "compact-icon": "p-1 text-xs",
 };
 
 const filterSizeClasses: Record<ButtonSize, string> = {
   default: "px-3 py-2 text-sm",
   small: "px-3 py-1.5 text-sm",
   compact: "px-2 py-1 text-xs",
+  "compact-icon": "p-1 text-xs",
 };
 
 function buttonClassName(
@@ -164,9 +167,15 @@ function buttonClassName(
   size: ButtonSize,
   className: string | undefined,
   fullWidth: boolean,
+  fullHeight: boolean,
 ) {
   if (raisedVariants.has(variant)) {
-    return [raisedShellClasses, fullWidth ? "w-full" : "", className ?? ""]
+    return [
+      raisedShellClasses,
+      fullWidth ? "w-full" : "",
+      fullHeight ? "h-full" : "",
+      className ?? "",
+    ]
       .filter(Boolean)
       .join(" ");
   }
@@ -185,14 +194,26 @@ function buttonClassName(
     variantClasses[variant],
     sizeClass,
     fullWidth ? "w-full" : "",
+    fullHeight ? "h-full" : "",
     className ?? "",
   ]
     .filter(Boolean)
     .join(" ");
 }
 
-function buttonFaceClassName(variant: ButtonVariant, size: ButtonSize, fullWidth: boolean) {
-  return [raisedFaceClasses, variantClasses[variant], sizeClasses[size], fullWidth ? "w-full" : ""]
+function buttonFaceClassName(
+  variant: ButtonVariant,
+  size: ButtonSize,
+  fullWidth: boolean,
+  fullHeight: boolean,
+) {
+  return [
+    raisedFaceClasses,
+    variantClasses[variant],
+    sizeClasses[size],
+    fullWidth ? "w-full" : "",
+    fullHeight ? "h-full" : "",
+  ]
     .filter(Boolean)
     .join(" ");
 }
@@ -201,6 +222,7 @@ function buttonContents(
   variant: ButtonVariant,
   size: ButtonSize,
   fullWidth: boolean,
+  fullHeight: boolean,
   children: ReactNode,
 ) {
   if (!raisedVariants.has(variant)) {
@@ -211,7 +233,7 @@ function buttonContents(
     <>
       <span className={raisedSideClasses} aria-hidden="true" />
 
-      <span className={buttonFaceClassName(variant, size, fullWidth)}>{children}</span>
+      <span className={buttonFaceClassName(variant, size, fullWidth, fullHeight)}>{children}</span>
     </>
   );
 }
@@ -221,13 +243,26 @@ export function Button({
   size = "default",
   className,
   fullWidth = false,
+  fullHeight = false,
   children,
   type = "button",
   ...props
 }: ButtonProps) {
+  const clickableClass = props.onClick && !props.disabled ? "cursor-pointer" : "";
+
   return (
-    <button {...props} type={type} className={buttonClassName(variant, size, className, fullWidth)}>
-      {buttonContents(variant, size, fullWidth, children)}
+    <button
+      {...props}
+      type={type}
+      className={buttonClassName(
+        variant,
+        size,
+        [className, clickableClass].filter(Boolean).join(" "),
+        fullWidth,
+        fullHeight,
+      )}
+    >
+      {buttonContents(variant, size, fullWidth, fullHeight, children)}
     </button>
   );
 }
@@ -237,13 +272,18 @@ export function ButtonLink({
   size = "default",
   className,
   fullWidth = false,
+  fullHeight = false,
   children,
   href,
   ...props
 }: ButtonLinkProps) {
   return (
-    <a {...props} href={href} className={buttonClassName(variant, size, className, fullWidth)}>
-      {buttonContents(variant, size, fullWidth, children)}
+    <a
+      {...props}
+      href={href}
+      className={buttonClassName(variant, size, className, fullWidth, fullHeight)}
+    >
+      {buttonContents(variant, size, fullWidth, fullHeight, children)}
     </a>
   );
 }
@@ -253,12 +293,13 @@ export function ButtonLabel({
   size = "default",
   className,
   fullWidth = false,
+  fullHeight = false,
   children,
   ...props
 }: ButtonLabelProps) {
   return (
-    <label {...props} className={buttonClassName(variant, size, className, fullWidth)}>
-      {buttonContents(variant, size, fullWidth, children)}
+    <label {...props} className={buttonClassName(variant, size, className, fullWidth, fullHeight)}>
+      {buttonContents(variant, size, fullWidth, fullHeight, children)}
     </label>
   );
 }

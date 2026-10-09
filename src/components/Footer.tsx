@@ -4,7 +4,7 @@ import { CONTACT_EMAIL } from "../data/team";
 const exploreLinks = [
   { label: "Discover", href: "/store" },
   { label: "Developers", href: "/builders" },
-  { label: "Community", href: "/community" },
+  { label: "Feed", href: "/feed" },
   { label: "Leaderboard", href: "/leaderboard" },
   { label: "About", href: "/about" },
 ];

@@ -312,7 +312,7 @@ export function buildNotifications(input: NotificationInput): NotificationItem[]
     });
   }
 
-  // Community wall updates (7d, not mine).
+  // Feed posts (7d, not mine).
   for (const m of milestones) {
     if (m.authorId === user.id) continue;
     if (!validDate(m.createdAt)) continue;

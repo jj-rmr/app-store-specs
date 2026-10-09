@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import {
   ArrowRight,
   BookOpenText,
+  CaretDown,
+  CaretUp,
   ChatCircleDots,
   DownloadSimple,
   Eye,
@@ -15,12 +17,12 @@ import {
   Info,
   LinkSimple,
   MagnifyingGlass,
+  Newspaper,
   Palette,
   PencilSimple,
   Plus,
   RocketLaunch,
   SignOut,
-  Sparkle,
   SquaresFour,
   Trophy,
   User as UserIcon,
@@ -51,7 +53,7 @@ import PagedMarkdown from "../components/PagedMarkdown";
 import ProfileView from "../components/ProfileView";
 import ProjectView from "../components/ProjectView";
 import SettingsView from "../components/SettingsView";
-import { Button, ButtonLabel } from "../components/Button";
+import { Button, ButtonLabel, ButtonLink } from "../components/Button";
 import Input, { getInputClassName } from "../components/Input";
 import { getAppRepo, getProfileRepo } from "../data/factory";
 import { indexProfiles } from "../data/profileLinks";
@@ -94,12 +96,12 @@ const categories: { label: CategoryFilter; Icon: typeof SquaresFour }[] = [
 ];
 
 type StoreView =
-  "discover" | "builders" | "community" | "leaderboard" | "profile" | "project" | "settings";
+  "discover" | "builders" | "feed" | "leaderboard" | "profile" | "project" | "settings";
 
 const routeForView: Record<Exclude<StoreView, "profile" | "project">, string> = {
   discover: "/store",
   builders: "/builders",
-  community: "/community",
+  feed: "/feed",
   leaderboard: "/leaderboard",
   settings: "/settings",
 };
@@ -119,7 +121,8 @@ function parsePath(path: string): {
   const appMatch = clean.match(/^\/(apps|store|projects)\/(.+)$/);
   if (appMatch && clean !== "/store")
     return { view: "project", profileId: null, appId: decodeURIComponent(appMatch[2]) };
-  if (clean === "/community") return { view: "community", profileId: null, appId: null };
+  if (clean === "/feed" || clean === "/community")
+    return { view: "feed", profileId: null, appId: null };
   if (clean === "/leaderboard") return { view: "leaderboard", profileId: null, appId: null };
   if (clean === "/settings") return { view: "settings", profileId: null, appId: null };
   return { view: "discover", profileId: null, appId: null };
@@ -136,10 +139,10 @@ const copyForView: Record<StoreView, { stamp: string; title: string; description
     title: "Meet the developers.",
     description: "Open a profile to see their projects and feedback.",
   },
-  community: {
-    stamp: "Community activity",
-    title: "What the community is working on.",
-    description: "Recent project updates, feedback, and milestones from across SPECS.",
+  feed: {
+    stamp: "SPECS community",
+    title: "Build in public.",
+    description: "Follow project updates, give feedback, and find your people.",
   },
   leaderboard: {
     stamp: "Top contributors",
@@ -226,6 +229,12 @@ export default function Store() {
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(initial.profileId);
   const [selectedAppId, setSelectedAppId] = useState<string | null>(initial.appId);
   const [projectEdit, setProjectEdit] = useState(false);
+
+  useEffect(() => {
+    if ((window.location.pathname.replace(/\/$/, "") || "/") === "/community") {
+      window.history.replaceState({}, "", "/feed");
+    }
+  }, []);
 
   const profilesLookup = useMemo(() => indexProfiles(profiles), [profiles]);
 
@@ -401,7 +410,7 @@ export default function Store() {
   }, [loadApps]);
 
   // Quiet background refresh (signed in, tab visible): picks up other
-  // builders' projects, votes, comments, and wall updates so the bell can
+  // builders' projects, votes, comments, and feed posts so the bell can
   // chime without any taps. Silent flags — no loading spinners.
   useEffect(() => {
     if (!user) return;
@@ -678,9 +687,9 @@ export default function Store() {
     saveNotificationState(user.id, next);
   }, [user, readIds, visibleItems, fullApps, currentlyTagged, dismissedIds, seenAt]);
 
-  const openCommunity = useCallback(() => {
-    window.history.pushState({}, "", "/community");
-    setView("community");
+  const openFeed = useCallback(() => {
+    window.history.pushState({}, "", "/feed");
+    setView("feed");
     setSelectedProfileId(null);
     setSelectedAppId(null);
     setProjectEdit(false);
@@ -692,6 +701,30 @@ export default function Store() {
     await signout();
   };
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+
+  const changeNotificationsOpen = useCallback((open: boolean) => {
+    setNotificationsOpen(open);
+    if (open) setAccountMenuOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!accountMenuRef.current?.contains(event.target as Node)) setAccountMenuOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setAccountMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [accountMenuOpen]);
 
   useEffect(() => {
     if (!confirmLogout) return;
@@ -728,6 +761,7 @@ export default function Store() {
     (e?: React.MouseEvent) => {
       e?.preventDefault();
       if (!user) return;
+      setAccountMenuOpen(false);
       window.history.pushState({}, "", "/profile");
       setSelectedProfileId(user.id);
       setView("profile");
@@ -777,10 +811,10 @@ export default function Store() {
         { label: "store", go: () => goPath("/store", "discover") },
         { label: "builders", current: true },
       ];
-    if (view === "community")
+    if (view === "feed")
       return [
         { label: "store", go: () => goPath("/store", "discover") },
-        { label: "community", current: true },
+        { label: "feed", current: true },
       ];
     if (view === "leaderboard")
       return [
@@ -1021,38 +1055,26 @@ export default function Store() {
 
   return (
     <div className="min-h-screen overflow-x-clip">
-      <aside className="fixed inset-x-0 top-0 z-40 h-[85px] border-b-[3px] border-ink bg-purple p-5 text-surface lg:inset-y-0 lg:left-0 lg:right-auto lg:h-screen lg:w-[280px] lg:border-b-0 lg:border-r-[3px] lg:p-7">
+      <aside className="fixed inset-x-0 top-0 z-40 h-21.25 border-b-[3px] border-ink bg-purple p-5 text-surface lg:inset-y-0 lg:left-0 lg:right-auto lg:flex lg:h-screen lg:w-70 lg:flex-col lg:border-b-0 lg:border-r-[3px] lg:p-7">
         <div className="flex items-center justify-between">
           <Brand light />
-          <div className="flex items-center gap-2 lg:hidden">
-            {myProfile && (
-              <button onClick={(e) => openMyProfile(e)} aria-label="View my profile">
-                <Avatar
-                  name={myProfile.name}
-                  color={myProfile.color}
-                  imageUrl={myProfile.imageUrl}
-                  size="sm"
-                  className="border-surface!"
-                />
-              </button>
-            )}
-            <button
-              onClick={() => setConfirmLogout(true)}
-              aria-label="Sign out"
-              className="rounded-lg border-2 border-surface p-2"
-            >
-              <SignOut size={20} weight="bold" />
-            </button>
-          </div>
         </div>
         <nav
-          className="fixed inset-x-0 bottom-0 z-50 grid h-18 grid-cols-6 gap-1 border-t-2 border-ink bg-purple p-2 sm:gap-2 lg:static lg:mt-12 lg:block lg:h-auto lg:space-y-2 lg:border-0 lg:bg-transparent lg:p-0 lg:pr-1"
+          className="fixed inset-x-0 bottom-0 z-50 grid h-18 grid-cols-3 gap-1 border-t-2 border-ink bg-purple p-2 sm:gap-2 lg:static lg:mt-12 lg:flex lg:h-auto lg:flex-col lg:gap-2 lg:border-0 lg:bg-transparent lg:p-0 lg:pr-1"
           aria-label="Main navigation"
         >
           <a
+            href="/feed"
+            onClick={(event) => goTab(event, "feed")}
+            className={`${navClass("feed")} lg:order-3`}
+          >
+            <Newspaper size={22} weight="duotone" />
+            <span>Feed</span>
+          </a>
+          <a
             href="/store"
             onClick={(event) => goTab(event, "discover")}
-            className={navClass("discover")}
+            className={`${navClass("discover")} lg:order-1`}
           >
             <MagnifyingGlass size={21} weight="duotone" />
             Discover
@@ -1060,33 +1082,22 @@ export default function Store() {
           <a
             href="/builders"
             onClick={(event) => goTab(event, "builders")}
-            className={navClass("builders")}
+            className={`${navClass("builders")} hidden lg:flex lg:order-2`}
           >
             <UsersThree size={22} weight="duotone" />
-            <span className="lg:hidden">Devs</span>
-            <span className="hidden lg:inline">Developers</span>
-          </a>
-          <a
-            href="/community"
-            onClick={(event) => goTab(event, "community")}
-            className={navClass("community")}
-          >
-            <ChatCircleDots size={22} weight="duotone" />
-            <span className="lg:hidden">Wall</span>
-            <span className="hidden lg:inline">Community</span>
+            Developers
           </a>
           <a
             href="/leaderboard"
             onClick={(event) => goTab(event, "leaderboard")}
-            className={navClass("leaderboard")}
+            className={`${navClass("leaderboard")} hidden lg:flex lg:order-4`}
           >
             <Trophy size={22} weight="duotone" />
-            <span className="lg:hidden">Board</span>
-            <span className="hidden lg:inline">Leaderboard</span>
+            Leaderboard
           </a>
           <a
             href="/about"
-            className="flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-0 text-center text-xs font-black leading-tight hover:bg-surface/15 lg:w-full lg:flex-row lg:justify-start lg:gap-3 lg:px-4 lg:py-3 lg:text-left lg:text-base"
+            className="hidden min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-0 text-center text-xs font-black leading-tight hover:bg-surface/15 lg:order-5 lg:flex lg:w-full lg:flex-row lg:justify-start lg:gap-3 lg:px-4 lg:py-3 lg:text-left lg:text-base"
           >
             <Info size={22} weight="duotone" />
             About
@@ -1094,54 +1105,153 @@ export default function Store() {
           <a
             href="/settings"
             onClick={(event) => goTab(event, "settings")}
-            className={navClass("settings")}
+            className={`${navClass("settings")} lg:order-6`}
           >
             <Gear size={22} weight="duotone" />
-            <span className="lg:hidden">Setup</span>
-            <span className="hidden lg:inline">Settings</span>
+            Settings
           </a>
-          {myProfile && (
-            <button
-              onClick={(e) => openMyProfile(e)}
-              aria-current={view === "profile" ? "page" : undefined}
-              className={`hidden w-full items-center justify-start gap-3 rounded-lg border-2 border-ink px-4 py-3 text-left text-base font-black leading-tight shadow-[2px_2px_0_var(--color-ink)] lg:flex ${view === "profile" ? "bg-yellow text-ink" : "bg-surface text-ink hover:bg-cream"}`}
-            >
-              <Avatar
-                name={myProfile.name}
-                color={myProfile.color}
-                imageUrl={myProfile.imageUrl}
-                size="md"
-                className="!border-ink"
-              />
-              <span className="min-w-0">
-                <span className="block truncate">
-                  {myProfile.name}
-                  {trophies.get(myProfile.id) !== undefined && (
-                    <TrophyMark place={trophies.get(myProfile.id) as 1 | 2 | 3} size={18} />
-                  )}
-                </span>
-                <span className="flex items-center gap-1 text-xs font-bold opacity-90">
-                  <UserIcon size={14} weight="bold" /> My profile
-                </span>
-              </span>
-            </button>
-          )}
         </nav>
-        <div className="mt-12 hidden lg:block">
-          <div className="rounded-lg border-[3px] border-ink bg-mint p-4 text-ink shadow-[4px_4px_0_var(--color-ink)]">
-            <UsersThree size={30} weight="duotone" />
-            <p className="mt-2 font-black">Student projects, shared openly</p>
-            <p className="mt-1 text-xs font-bold leading-5">
-              Find collaborators, share progress, and exchange useful feedback.
-            </p>
+        <div
+          ref={accountMenuRef}
+          className="fixed right-4 top-4 z-60 lg:relative lg:right-auto lg:top-auto lg:z-auto lg:mt-auto"
+        >
+          <div className="lg:hidden -translate-y-1 flex gap-2 items-center">
+            <Button
+              type="button"
+              variant="secondary"
+              size="compact"
+              aria-label="Open profile and site menu"
+              aria-haspopup="true"
+              aria-expanded={accountMenuOpen}
+              aria-controls={accountMenuOpen ? "account-menu" : undefined}
+              onClick={() => {
+                setNotificationsOpen(false);
+                setAccountMenuOpen((open) => !open);
+              }}
+              className="flex"
+            >
+              {myProfile ? (
+                <Avatar
+                  name={myProfile.name}
+                  color={myProfile.color}
+                  imageUrl={myProfile.imageUrl}
+                  size="sm"
+                  className="border-ink! text-ink"
+                />
+              ) : (
+                <span className="grid h-9 w-9 place-items-center rounded-full border-2 border-ink bg-cream">
+                  <UserIcon size={19} weight="bold" />
+                </span>
+              )}
+              <span className="hidden min-w-0 flex-1 truncate text-sm font-black sm:block">
+                {myProfile?.name ?? "Account"}
+              </span>
+            </Button>
+            {accountMenuOpen && (
+              <div
+                id="account-menu"
+                role="group"
+                aria-label="Profile and site menu"
+                className="toon-card absolute right-0 mt-2 max-h-[calc(100dvh-6rem)] w-56 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl p-2 text-sm text-ink lg:bottom-full lg:left-0 lg:right-auto lg:top-auto lg:mb-2 lg:mt-0 lg:w-full"
+              >
+                {myProfile && (
+                  <button
+                    type="button"
+                    onClick={() => openMyProfile()}
+                    aria-current={view === "profile" ? "page" : undefined}
+                    className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left font-black hover:bg-cream"
+                  >
+                    <Avatar
+                      name={myProfile.name}
+                      color={myProfile.color}
+                      imageUrl={myProfile.imageUrl}
+                      size="sm"
+                      className="border-ink!"
+                    />
+                    <span className="min-w-0 truncate">My profile</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAccountMenuOpen(false);
+                    goPath("/builders", "builders");
+                  }}
+                  className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left font-black hover:bg-cream"
+                >
+                  <UsersThree size={20} weight="duotone" />
+                  Developers
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAccountMenuOpen(false);
+                    goPath("/leaderboard", "leaderboard");
+                  }}
+                  className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left font-black hover:bg-cream"
+                >
+                  <Trophy size={20} weight="duotone" />
+                  Leaderboard
+                </button>
+                <a
+                  href="/about"
+                  onClick={() => setAccountMenuOpen(false)}
+                  className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left font-black hover:bg-cream"
+                >
+                  <Info size={20} weight="duotone" />
+                  About
+                </a>
+                <div className="my-1 border-t-2 border-dashed border-muted" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAccountMenuOpen(false);
+                    setConfirmLogout(true);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left font-black text-red-700 hover:bg-cream"
+                >
+                  <SignOut size={20} weight="bold" />
+                  Log out
+                </button>
+              </div>
+            )}
+            {user && (
+              <NotificationBell
+                items={visibleItems}
+                unreadIds={unreadIds}
+                arrivalAt={seenAt}
+                loading={threadsLoading}
+                open={notificationsOpen}
+                onOpenChange={changeNotificationsOpen}
+                onOpenApp={(appId) => openApp(appId)}
+                onOpenFeed={openFeed}
+                onMarkAllRead={markAllNotificationsRead}
+                onMarkRead={markNotificationRead}
+                onDeleteAll={deleteAllNotifications}
+              />
+            )}
           </div>
-          <button
-            onClick={() => setConfirmLogout(true)}
-            className="mt-7 flex items-center gap-2 text-sm font-black underline decoration-2 underline-offset-4"
-          >
-            <SignOut size={19} weight="bold" />
-            Sign out
-          </button>
+          <div className="hidden lg:block">
+            {myProfile && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="small"
+                onClick={() => openMyProfile()}
+                aria-current={view === "profile" ? "page" : undefined}
+                className="font-black mx-auto"
+              >
+                <Avatar
+                  name={myProfile.name}
+                  color={myProfile.color}
+                  imageUrl={myProfile.imageUrl}
+                  size="sm"
+                  className="border-ink!"
+                />
+                <span className="min-w-0 truncate">My profile</span>
+              </Button>
+            )}
+          </div>
         </div>
       </aside>
 
@@ -1186,16 +1296,16 @@ export default function Store() {
           document.body,
         )}
 
-      <div className="min-w-0 px-5 pb-23 pt-26.25 sm:px-8 sm:pb-25 sm:pt-29.25 lg:ml-70 lg:p-10">
+      <div className="min-w-0">
         <nav
           aria-label="Breadcrumb"
-          className="sticky top-23.25 z-30 mx-auto mb-5 max-w-6xl overflow-x-auto rounded-xl border-[3px] border-ink bg-surface/80 px-3 py-2 font-mono text-sm shadow-[3px_3px_0_var(--color-ink)] backdrop-blur-md lg:top-4"
+          className="top-0 z-30 ml-70 border-b-[3px] border-ink bg-paper px-3 py-2 text-sm hidden md:flex md:justify-between sticky"
         >
-          <ol className="flex min-w-max items-center gap-1">
+          <ol className="flex min-w-max items-center gap-2">
             {crumbs.map((c, i) => (
-              <li key={`${c.label}-${i}`} className="flex min-w-0 items-center gap-1">
+              <li key={`${c.label}-${i}`} className="flex min-w-0 items-center gap-3">
                 {i > 0 && (
-                  <span aria-hidden="true" className="font-black text-muted">
+                  <span aria-hidden="true" className="font-black">
                     \
                   </span>
                 )}
@@ -1203,1118 +1313,1132 @@ export default function Store() {
                   <span
                     aria-current={c.current ? "page" : undefined}
                     title={c.label}
-                    className={`max-w-45 truncate px-1.5 py-0.5 font-black ${c.current ? "rounded-md border-2 border-ink bg-yellow" : ""}`}
+                    className={`px-2 py-0.5 font-black ${c.current ? "rounded-md border-2 border-ink bg-yellow" : ""}`}
                   >
                     {c.label}
                   </span>
                 ) : (
-                  <button
-                    type="button"
+                  <ButtonLabel
+                    variant="ghost"
                     onClick={c.go}
                     title={`Go to ${c.label}`}
-                    className="max-w-[180px] truncate rounded-md px-1.5 py-0.5 font-bold text-purple hover:bg-cream hover:underline"
+                    className=""
                   >
                     {c.label}
-                  </button>
+                  </ButtonLabel>
                 )}
               </li>
             ))}
           </ol>
-        </nav>
-        <header id="discover" className="mx-auto max-w-6xl scroll-mt-5">
-          <div className="flex flex-wrap items-start justify-between gap-5">
-            <div>
-              <p className="ink-stamp bg-surface">{copyForView[view].stamp}</p>
-              <h1 className="mt-4 text-3xl font-black sm:text-4xl">{copyForView[view].title}</h1>
-              <p className="mt-3 max-w-2xl text-muted">{copyForView[view].description}</p>
-            </div>
-            <div className="flex shrink-0 items-center gap-3">
-              {user && (
-                <NotificationBell
-                  items={visibleItems}
-                  unreadIds={unreadIds}
-                  arrivalAt={seenAt}
-                  loading={threadsLoading}
-                  onOpenApp={(appId) => openApp(appId)}
-                  onOpenCommunity={openCommunity}
-                  onMarkAllRead={markAllNotificationsRead}
-                  onMarkRead={markNotificationRead}
-                  onDeleteAll={deleteAllNotifications}
-                />
-              )}
-              {view !== "profile" && view !== "project" && view !== "settings" && (
-                <Button variant="secondary" onClick={() => setShowForm((open) => !open)}>
-                  {showForm ? <X size={20} weight="bold" /> : <Plus size={20} weight="bold" />}
-                  {showForm ? "Close" : "Submit a project"}
-                </Button>
-              )}
-            </div>
-          </div>
-          {view === "discover" && (
-            <label className="relative mt-8 block">
-              <span className="sr-only">Search student projects</span>
-              <MagnifyingGlass
-                size={23}
-                weight="bold"
-                className="absolute left-5 top-1/2 -translate-y-1/2"
+          {user && (
+            <div className="hidden lg:block">
+              <NotificationBell
+                items={visibleItems}
+                unreadIds={unreadIds}
+                arrivalAt={seenAt}
+                loading={threadsLoading}
+                open={notificationsOpen}
+                onOpenChange={changeNotificationsOpen}
+                onOpenApp={(appId) => openApp(appId)}
+                onOpenFeed={openFeed}
+                onMarkAllRead={markAllNotificationsRead}
+                onMarkRead={markNotificationRead}
+                onDeleteAll={deleteAllNotifications}
               />
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                variant="search"
-                placeholder="Search projects, descriptions, or developers"
-              />
-            </label>
+            </div>
           )}
-        </header>
-
-        <ErrorBoundary name={view} key={view}>
-          <div className="mx-auto mt-9 max-w-6xl">
-            {showForm && view !== "profile" && view !== "project" && view !== "settings" && (
-              <form
-                ref={submitFormRef}
-                onSubmit={(e) => void submit(e)}
-                className="toon-card paper-note mb-10 grid scroll-mt-28 gap-5 rounded-lg bg-sky p-6 pt-10 sm:grid-cols-2"
-              >
-                <div className="sm:col-span-2">
-                  <RocketLaunch size={32} weight="duotone" />
-                  <h2 className="mt-2 text-2xl font-black">Submit a project</h2>
-                  <p className="text-body">Add a concise description and a link to your project.</p>
-                </div>
-                <label>
-                  <span className="toon-label">Project name</span>
-                  <Input
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    required
-                    placeholder="Project name"
-                  />
-                </label>
-                <label>
-                  <span className="toon-label">
-                    What does it do? (type @ to mention developers)
-                  </span>
-                  <MentionInput
-                    value={desc}
-                    onChange={setDesc}
-                    profiles={profiles}
-                    required
-                    placeholder="One clear sentence — @ a collaborator"
-                  />
-                </label>
-                <div className="sm:col-span-2">
-                  <span className="toon-label">Collaborators (optional)</span>
-                  <CollaboratorPicker
-                    profiles={profiles}
-                    selected={collabIds}
-                    onChange={setCollabIds}
-                  />
-                </div>
-                <label>
-                  <span className="toon-label">Category</span>
-                  <select
-                    className={getInputClassName()}
-                    value={categoryInput}
-                    onChange={(event) => setCategoryInput(event.target.value as Category)}
-                  >
-                    <option value="Education">Education</option>
-                    <option value="Productivity">Productivity</option>
-                    <option value="Games">Games</option>
-                    <option value="Creative">Creative</option>
-                  </select>
-                </label>
-                <label>
-                  <span className="toon-label">App link</span>
-                  <span className="relative block">
-                    <LinkSimple
-                      size={21}
-                      weight="bold"
-                      className="absolute left-4 top-1/2 -translate-y-1/2"
-                    />
-                    <Input
-                      className="pl-12"
-                      type="url"
-                      value={url}
-                      onChange={(event) => {
-                        setUrl(event.target.value);
-                        resetRepositoryFiles();
-                      }}
-                      required
-                      placeholder="https://project.example"
-                      aria-describedby="app-link-help"
-                    />
-                  </span>
-                  <span id="app-link-help" className="mt-2 block text-xs text-body">
-                    The live demo or project page behind the Open app button.
-                  </span>
-                </label>
-                <label>
-                  <span className="toon-label">GitHub project repo link (optional)</span>
-                  <span className="relative block">
-                    <LinkSimple
-                      size={21}
-                      weight="bold"
-                      className="absolute left-4 top-1/2 -translate-y-1/2"
-                    />
-                    <Input
-                      className="pl-12"
-                      type="url"
-                      value={repoUrl}
-                      onChange={(event) => {
-                        setRepoUrl(event.target.value);
-                        resetRepositoryFiles();
-                      }}
-                      placeholder="https://github.com/you/project"
-                      aria-describedby="repo-link-help"
-                    />
-                  </span>
-                  <span id="repo-link-help" className="mt-2 block text-xs text-body">
-                    Only used to import documentation. Never shown on the Open app button.
-                  </span>
-                </label>
-                <div className="sm:col-span-2">
-                  <span className="toon-label">Thumbnails (up to 3, first is the cover)</span>
-                  <ButtonLabel variant="surface" size="small" className="cursor-pointer">
-                    <Images size={20} weight="duotone" />
-                    {imageBusy
-                      ? "Processing…"
-                      : screenshots.length
-                        ? "Add more"
-                        : "Choose from gallery"}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="sr-only"
-                      disabled={imageBusy || screenshots.length >= 3}
-                      onChange={(e) => {
-                        void pickImages(e.target.files);
-                        e.target.value = "";
-                      }}
-                    />
-                  </ButtonLabel>
-                  {imgError && (
-                    <p role="alert" className="mt-2 text-sm font-bold">
-                      {imgError}
+        </nav>
+        <div className="px-5 pb-23 pt-26.25 sm:px-8 sm:pb-25 sm:pt-29.25 lg:ml-70 lg:p-10">
+          <header id="discover" className="mx-auto max-w-6xl scroll-mt-5">
+            <div className="flex flex-wrap items-start justify-between gap-5">
+              <div>
+                <p className="ink-stamp bg-surface">{copyForView[view].stamp}</p>
+                <h1 className="mt-4 text-3xl font-black sm:text-4xl">{copyForView[view].title}</h1>
+                <p className="mt-3 max-w-2xl text-muted">{copyForView[view].description}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-3">
+                {view !== "profile" && view !== "project" && view !== "settings" && (
+                  <Button variant="secondary" onClick={() => setShowForm((open) => !open)}>
+                    {showForm ? <X size={20} weight="bold" /> : <Plus size={20} weight="bold" />}
+                    {showForm ? "Close" : "Submit a project"}
+                  </Button>
+                )}
+              </div>
+            </div>
+            {view === "discover" && (
+              <label className="relative mt-8 block">
+                <span className="sr-only">Search student projects</span>
+                <MagnifyingGlass
+                  size={23}
+                  weight="bold"
+                  className="absolute left-5 top-1/2 -translate-y-1/2"
+                />
+                <Input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  variant="search"
+                  placeholder="Search projects, descriptions, or developers"
+                />
+              </label>
+            )}
+          </header>
+          <ErrorBoundary name={view} key={view}>
+            <div className="mx-auto mt-9 max-w-6xl">
+              {showForm && view !== "profile" && view !== "project" && view !== "settings" && (
+                <form
+                  ref={submitFormRef}
+                  onSubmit={(e) => void submit(e)}
+                  className="toon-card paper-note mb-10 grid scroll-mt-28 gap-5 rounded-lg bg-sky p-6 pt-10 sm:grid-cols-2"
+                >
+                  <div className="sm:col-span-2">
+                    <RocketLaunch size={32} weight="duotone" />
+                    <h2 className="mt-2 text-2xl font-black">Submit a project</h2>
+                    <p className="text-body">
+                      Add a concise description and a link to your project.
                     </p>
-                  )}
-                  {screenshots.length > 0 && (
-                    <div className="mt-3 grid grid-cols-3 gap-3">
-                      {screenshots.map((src, i) => (
-                        <div key={src.slice(0, 32) + i} className="relative">
-                          <img
-                            src={src}
-                            alt={`Upload preview ${i + 1}`}
-                            className="h-24 w-full rounded-xl border-[3px] border-ink object-cover"
-                          />
-                          {i === 0 && (
-                            <span className="absolute left-2 top-2 rounded-full border-2 border-ink bg-yellow px-2 py-0.5 text-[10px] font-black">
-                              COVER
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => setScreenshots((prev) => prev.filter((_, j) => j !== i))}
-                            aria-label={`Remove image ${i + 1}`}
-                            className="absolute right-2 top-2 rounded-full border-2 border-ink bg-surface p-1"
-                          >
-                            <X size={14} weight="bold" />
-                          </button>
-                        </div>
+                  </div>
+                  <label>
+                    <span className="toon-label">Project name</span>
+                    <Input
+                      value={title}
+                      onChange={(event) => setTitle(event.target.value)}
+                      required
+                      placeholder="Project name"
+                    />
+                  </label>
+                  <label>
+                    <span className="toon-label">
+                      What does it do? (type @ to mention developers)
+                    </span>
+                    <MentionInput
+                      value={desc}
+                      onChange={setDesc}
+                      profiles={profiles}
+                      required
+                      placeholder="One clear sentence — @ a collaborator"
+                    />
+                  </label>
+                  <div className="sm:col-span-2">
+                    <span className="toon-label">Collaborators (optional)</span>
+                    <CollaboratorPicker
+                      profiles={profiles}
+                      selected={collabIds}
+                      onChange={setCollabIds}
+                    />
+                  </div>
+                  <label>
+                    <span className="toon-label">Category</span>
+                    <select
+                      className={getInputClassName()}
+                      value={categoryInput}
+                      onChange={(event) => setCategoryInput(event.target.value as Category)}
+                    >
+                      <option value="Education">Education</option>
+                      <option value="Productivity">Productivity</option>
+                      <option value="Games">Games</option>
+                      <option value="Creative">Creative</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span className="toon-label">App link</span>
+                    <span className="relative block">
+                      <LinkSimple
+                        size={21}
+                        weight="bold"
+                        className="absolute left-4 top-1/2 -translate-y-1/2"
+                      />
+                      <Input
+                        className="pl-12"
+                        type="url"
+                        value={url}
+                        onChange={(event) => {
+                          setUrl(event.target.value);
+                          resetRepositoryFiles();
+                        }}
+                        required
+                        placeholder="https://project.example"
+                        aria-describedby="app-link-help"
+                      />
+                    </span>
+                    <span id="app-link-help" className="mt-2 block text-xs text-body">
+                      The live demo or project page behind the Open app button.
+                    </span>
+                  </label>
+                  <label>
+                    <span className="toon-label">GitHub project repo link (optional)</span>
+                    <span className="relative block">
+                      <LinkSimple
+                        size={21}
+                        weight="bold"
+                        className="absolute left-4 top-1/2 -translate-y-1/2"
+                      />
+                      <Input
+                        className="pl-12"
+                        type="url"
+                        value={repoUrl}
+                        onChange={(event) => {
+                          setRepoUrl(event.target.value);
+                          resetRepositoryFiles();
+                        }}
+                        placeholder="https://github.com/you/project"
+                        aria-describedby="repo-link-help"
+                      />
+                    </span>
+                    <span id="repo-link-help" className="mt-2 block text-xs text-body">
+                      Only used to import documentation. Never shown on the Open app button.
+                    </span>
+                  </label>
+                  <div className="sm:col-span-2">
+                    <span className="toon-label">Thumbnails (up to 3, first is the cover)</span>
+                    <ButtonLabel variant="surface" size="small" className="cursor-pointer">
+                      <Images size={20} weight="duotone" />
+                      {imageBusy
+                        ? "Processing…"
+                        : screenshots.length
+                          ? "Add more"
+                          : "Choose from gallery"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="sr-only"
+                        disabled={imageBusy || screenshots.length >= 3}
+                        onChange={(e) => {
+                          void pickImages(e.target.files);
+                          e.target.value = "";
+                        }}
+                      />
+                    </ButtonLabel>
+                    {imgError && (
+                      <p role="alert" className="mt-2 text-sm font-bold">
+                        {imgError}
+                      </p>
+                    )}
+                    {screenshots.length > 0 && (
+                      <div className="mt-3 grid grid-cols-3 gap-3">
+                        {screenshots.map((src, i) => (
+                          <div key={src.slice(0, 32) + i} className="relative">
+                            <img
+                              src={src}
+                              alt={`Upload preview ${i + 1}`}
+                              className="h-24 w-full rounded-xl border-[3px] border-ink object-cover"
+                            />
+                            {i === 0 && (
+                              <span className="absolute left-2 top-2 rounded-full border-2 border-ink bg-yellow px-2 py-0.5 text-[10px] font-black">
+                                COVER
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setScreenshots((prev) => prev.filter((_, j) => j !== i))
+                              }
+                              aria-label={`Remove image ${i + 1}`}
+                              className="absolute right-2 top-2 rounded-full border-2 border-ink bg-surface p-1"
+                            >
+                              <X size={14} weight="bold" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <span className="mt-2 block text-xs text-body">
+                      Any photo from your gallery (iPhone HEIC not yet supported), compressed
+                      on-device. First image becomes the card cover.
+                    </span>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                      {(["write", "upload", "repository"] as const).map((tab) => (
+                        <Button
+                          key={tab}
+                          variant="outline-flat"
+                          size="small"
+                          type="button"
+                          onClick={() => {
+                            setDocsPreviewReturnTab(tab);
+                            setDocsTab(tab);
+                          }}
+                          aria-pressed={docsTab === tab}
+                          className="capitalize"
+                        >
+                          {tab === "upload"
+                            ? "Upload .md"
+                            : tab === "repository"
+                              ? "GitHub repository"
+                              : tab}
+                        </Button>
                       ))}
-                    </div>
-                  )}
-                  <span className="mt-2 block text-xs text-body">
-                    Any photo from your gallery (iPhone HEIC not yet supported), compressed
-                    on-device. First image becomes the card cover.
-                  </span>
-                </div>
-                <div className="sm:col-span-2">
-                  <div className="mb-3 flex flex-wrap items-center gap-2">
-                    {(["write", "upload", "repository"] as const).map((tab) => (
                       <Button
-                        key={tab}
                         variant="outline-flat"
                         size="small"
                         type="button"
                         onClick={() => {
-                          setDocsPreviewReturnTab(tab);
-                          setDocsTab(tab);
+                          if (docsTab === "preview") setDocsTab(docsPreviewReturnTab);
+                          else {
+                            setDocsPreviewReturnTab(docsTab);
+                            setDocsTab("preview");
+                          }
                         }}
-                        aria-pressed={docsTab === tab}
-                        className="capitalize"
+                        aria-pressed={docsTab === "preview"}
+                        className="ml-auto"
                       >
-                        {tab === "upload"
-                          ? "Upload .md"
-                          : tab === "repository"
-                            ? "GitHub repository"
-                            : tab}
+                        {docsTab === "preview" ? (
+                          <>
+                            <PencilSimple size={16} weight="bold" /> Edit
+                          </>
+                        ) : (
+                          <>
+                            <Eye size={16} weight="bold" /> Preview
+                          </>
+                        )}
                       </Button>
-                    ))}
-                    <Button
-                      variant="outline-flat"
-                      size="small"
-                      type="button"
-                      onClick={() => {
-                        if (docsTab === "preview") setDocsTab(docsPreviewReturnTab);
-                        else {
-                          setDocsPreviewReturnTab(docsTab);
-                          setDocsTab("preview");
-                        }
-                      }}
-                      aria-pressed={docsTab === "preview"}
-                      className="ml-auto"
-                    >
-                      {docsTab === "preview" ? (
-                        <>
-                          <PencilSimple size={16} weight="bold" /> Edit
-                        </>
-                      ) : (
-                        <>
-                          <Eye size={16} weight="bold" /> Preview
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  {docsTab === "write" && (
-                    <MarkdownTextarea
-                      className="min-h-24"
-                      value={docs}
-                      onChange={(event) => {
-                        setDocs(event.target.value);
-                        setDocsFile(null);
-                      }}
-                      maxLength={50000}
-                      placeholder={"# My project\n\nWhat it does, how to run it…"}
-                    />
-                  )}
-                  {docsTab === "upload" && (
-                    <div>
-                      <ButtonLabel variant="surface" size="small" className="cursor-pointer">
-                        <BookOpenText size={20} weight="duotone" />
-                        Choose README.md
-                        <input
-                          type="file"
-                          accept=".md,.markdown,.txt,text/markdown,text/plain"
-                          className="sr-only"
-                          onChange={(e) => {
-                            void readMdFile(e.target.files?.[0]);
-                            e.target.value = "";
-                          }}
-                        />
-                      </ButtonLabel>
-                      <span className="mt-2 block text-xs text-body">
-                        Works with README.md or plain extensionless README files, like on GitHub.
-                      </span>
-                      {docsFile && (
-                        <div className="mt-3 rounded-xl border-2 border-dashed border-divider p-3">
-                          <p className="text-sm font-black">✓ {docsFile} loaded</p>
-                          <p className="mt-1 text-sm font-bold text-muted">
-                            {docs.length} chars —{" "}
-                            <button
-                              type="button"
-                              onClick={() => setDocsTab("preview")}
-                              className="underline decoration-2 underline-offset-4"
-                            >
-                              see the finished doc
-                            </button>
-                          </p>
-                        </div>
-                      )}
                     </div>
-                  )}
-                  {docsTab === "repository" && (
-                    <div className="rounded-xl border-2 border-ink bg-surface p-4">
-                      {!isGitHubRepositoryUrl(docsRepoUrl) ? (
-                        <p role="status" className="text-sm font-bold text-body">
-                          Provide your GitHub project repo link first — paste it in the repo link
-                          field above, then come back here to choose Markdown files.
-                        </p>
-                      ) : (
-                        <>
-                          <p className="text-sm font-bold text-body">
-                            Choose Markdown files from the public GitHub repository in your project
-                            link.
-                          </p>
-                          <Button
-                            variant="secondary"
-                            size="small"
-                            type="button"
-                            onClick={() => void loadRepositoryFiles()}
-                            disabled={repositoryFilesLoading || repositoryFilesImporting}
-                            className="mt-3"
-                          >
-                            {repositoryFilesLoading
-                              ? "Loading repository files…"
-                              : "Load Markdown files"}
-                          </Button>
-                          {repositoryFilesError && (
-                            <p role="alert" className="mt-3 text-sm font-bold text-ink">
-                              {repositoryFilesError}
+                    {docsTab === "write" && (
+                      <MarkdownTextarea
+                        className="min-h-24"
+                        value={docs}
+                        onChange={(event) => {
+                          setDocs(event.target.value);
+                          setDocsFile(null);
+                        }}
+                        maxLength={50000}
+                        placeholder={"# My project\n\nWhat it does, how to run it…"}
+                      />
+                    )}
+                    {docsTab === "upload" && (
+                      <div>
+                        <ButtonLabel variant="surface" size="small" className="cursor-pointer">
+                          <BookOpenText size={20} weight="duotone" />
+                          Choose README.md
+                          <input
+                            type="file"
+                            accept=".md,.markdown,.txt,text/markdown,text/plain"
+                            className="sr-only"
+                            onChange={(e) => {
+                              void readMdFile(e.target.files?.[0]);
+                              e.target.value = "";
+                            }}
+                          />
+                        </ButtonLabel>
+                        <span className="mt-2 block text-xs text-body">
+                          Works with README.md or plain extensionless README files, like on GitHub.
+                        </span>
+                        {docsFile && (
+                          <div className="mt-3 rounded-xl border-2 border-dashed border-divider p-3">
+                            <p className="text-sm font-black">✓ {docsFile} loaded</p>
+                            <p className="mt-1 text-sm font-bold text-muted">
+                              {docs.length} chars —{" "}
+                              <button
+                                type="button"
+                                onClick={() => setDocsTab("preview")}
+                                className="underline decoration-2 underline-offset-4"
+                              >
+                                see the finished doc
+                              </button>
                             </p>
-                          )}
-                          {repositoryFiles.length > 0 && (
-                            <>
-                              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                                <p className="text-sm font-black">
-                                  {selectedRepositoryFiles.length} of {repositoryFiles.length}{" "}
-                                  selected
-                                </p>
-                                <label className="flex items-center gap-2 text-sm font-black">
-                                  <input
-                                    type="checkbox"
-                                    checked={
-                                      selectedRepositoryFiles.length === repositoryFiles.length
-                                    }
-                                    onChange={(event) =>
-                                      setSelectedRepositoryFiles(
-                                        event.target.checked ? repositoryFiles : [],
-                                      )
-                                    }
-                                  />
-                                  Select all
-                                </label>
-                              </div>
-                              <div className="mt-2 max-h-64 space-y-1 overflow-y-auto rounded-lg border-2 border-divider p-2">
-                                {repositoryFiles.map((path) => (
-                                  <label
-                                    key={path}
-                                    className="flex items-start gap-2 rounded-md px-2 py-1.5 text-sm font-bold hover:bg-cream"
-                                  >
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {docsTab === "repository" && (
+                      <div className="rounded-xl border-2 border-ink bg-surface p-4">
+                        {!isGitHubRepositoryUrl(docsRepoUrl) ? (
+                          <p role="status" className="text-sm font-bold text-body">
+                            Provide your GitHub project repo link first — paste it in the repo link
+                            field above, then come back here to choose Markdown files.
+                          </p>
+                        ) : (
+                          <>
+                            <p className="text-sm font-bold text-body">
+                              Choose Markdown files from the public GitHub repository in your
+                              project link.
+                            </p>
+                            <Button
+                              variant="secondary"
+                              size="small"
+                              type="button"
+                              onClick={() => void loadRepositoryFiles()}
+                              disabled={repositoryFilesLoading || repositoryFilesImporting}
+                              className="mt-3"
+                            >
+                              {repositoryFilesLoading
+                                ? "Loading repository files…"
+                                : "Load Markdown files"}
+                            </Button>
+                            {repositoryFilesError && (
+                              <p role="alert" className="mt-3 text-sm font-bold text-ink">
+                                {repositoryFilesError}
+                              </p>
+                            )}
+                            {repositoryFiles.length > 0 && (
+                              <>
+                                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                                  <p className="text-sm font-black">
+                                    {selectedRepositoryFiles.length} of {repositoryFiles.length}{" "}
+                                    selected
+                                  </p>
+                                  <label className="flex items-center gap-2 text-sm font-black">
                                     <input
                                       type="checkbox"
-                                      checked={selectedRepositoryFiles.includes(path)}
+                                      checked={
+                                        selectedRepositoryFiles.length === repositoryFiles.length
+                                      }
                                       onChange={(event) =>
-                                        setSelectedRepositoryFiles((selected) =>
-                                          event.target.checked
-                                            ? [...selected, path]
-                                            : selected.filter((item) => item !== path),
+                                        setSelectedRepositoryFiles(
+                                          event.target.checked ? repositoryFiles : [],
                                         )
                                       }
-                                      className="mt-1 shrink-0"
                                     />
-                                    <span className="break-all">{path}</span>
+                                    Select all
                                   </label>
-                                ))}
-                              </div>
-                              <Button
-                                size="small"
-                                type="button"
-                                onClick={() => void importRepositoryFiles()}
-                                disabled={
-                                  !selectedRepositoryFiles.length || repositoryFilesImporting
-                                }
-                                className="mt-3"
-                              >
-                                {repositoryFilesImporting
-                                  ? "Importing selected files…"
-                                  : `Use ${selectedRepositoryFiles.length} selected file${selectedRepositoryFiles.length === 1 ? "" : "s"}`}
-                              </Button>
-                              <p className="mt-2 text-xs font-bold text-muted">
-                                Selected files are combined into project documentation
-                                (50,000-character limit).
-                              </p>
-                            </>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
-                  {docsTab === "preview" && (
-                    <div className="rounded-2xl border-[3px] border-ink bg-surface p-4">
-                      {docsFile && docs.trim() && (
-                        <p className="mb-3 text-xs font-black uppercase text-muted">
-                          Preview of {docsFile}
-                        </p>
-                      )}
-                      {docs.length > 50000 && (
-                        <div
-                          role="status"
-                          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border-2 border-ink bg-yellow/40 p-3"
-                        >
-                          <p className="text-sm font-bold">
-                            This document is {docs.length.toLocaleString()} characters. It exceeds
-                            the 50,000-character project limit, but you can still download it.
-                          </p>
-                          <Button
-                            variant="surface"
-                            size="small"
-                            type="button"
-                            onClick={downloadDocumentation}
-                            className="shrink-0"
-                          >
-                            <DownloadSimple size={18} weight="bold" />
-                            Download Markdown
-                          </Button>
-                        </div>
-                      )}
-                      {docs.trim() ? (
-                        <PagedMarkdown text={docs} fadeTo="var(--color-surface)" />
-                      ) : (
-                        <p className="text-sm font-bold text-muted">
-                          Nothing to preview yet — write some markdown or upload a README.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {submitError && (
-                  <p role="alert" className="sm:col-span-2 text-sm font-bold text-ink">
-                    {submitError}
-                  </p>
-                )}
-                <Button
-                  type="submit"
-                  disabled={
-                    submitting || imageBusy || repositoryFilesLoading || repositoryFilesImporting
-                  }
-                  className="sm:col-span-2 sm:justify-self-start"
-                >
-                  {submitting
-                    ? "Publishing…"
-                    : imageBusy
-                      ? "Processing images…"
-                      : repositoryFilesLoading || repositoryFilesImporting
-                        ? "Loading documentation…"
-                        : "Publish project"}{" "}
-                  <ArrowRight size={20} weight="bold" />
-                </Button>
-              </form>
-            )}
-
-            {view === "project" && selectedAppId && (
-              <section className="mt-2">
-                <ProjectView
-                  key={`${selectedAppId}:${projectEdit}`}
-                  appId={selectedAppId}
-                  currentUser={user ?? null}
-                  profiles={profilesLookup}
-                  startEditing={projectEdit}
-                  onBack={() => {
-                    window.history.pushState({}, "", "/store");
-                    setView("discover");
-                    setSelectedAppId(null);
-                    setProjectEdit(false);
-                  }}
-                  onOpenProfile={openProfile}
-                  trophies={trophies}
-                  projectTrophies={projectTrophies}
-                  onChanged={() => void loadApps()}
-                  onDeleted={() => {
-                    window.history.pushState({}, "", "/store");
-                    setView("discover");
-                    setSelectedAppId(null);
-                    setProjectEdit(false);
-                    void loadApps();
-                  }}
-                />
-              </section>
-            )}
-
-            {view === "profile" && selectedProfileId && (
-              <section className="mt-2">
-                <ProfileView
-                  key={selectedProfileId}
-                  profileId={
-                    selectedProfileId === "__me__" ? (user?.id ?? "__me__") : selectedProfileId
-                  }
-                  currentUser={user ?? null}
-                  trophies={trophies}
-                  projectTrophies={projectTrophies}
-                  profiles={profilesLookup}
-                  rankSummary={(() => {
-                    const resolvedId =
-                      selectedProfileId === "__me__" ? (user?.id ?? "__me__") : selectedProfileId;
-                    const rank = rankedDevelopers.findIndex((r) => r.profile.id === resolvedId);
-                    if (rank === -1) return undefined;
-                    return {
-                      rank: rank + 1,
-                      points: rankedDevelopers[rank].points,
-                      total: rankedDevelopers.length,
-                    };
-                  })()}
-                  onBack={() => {
-                    window.history.pushState({}, "", "/builders");
-                    setView("builders");
-                    setSelectedProfileId(null);
-                  }}
-                  onOpenApp={openAppFromProfile}
-                  onOpenProfile={openProfile}
-                  onClaimed={() => {
-                    if (!user) return;
-                    openProfile(user.id);
-                    setProfileTick((t) => t + 1);
-                    void loadApps();
-                  }}
-                  onProfileUpdated={() => setProfileTick((t) => t + 1)}
-                />
-              </section>
-            )}
-
-            {view === "discover" && (
-              <section id="apps" className="mt-2 scroll-mt-6">
-                {user &&
-                  !fullApps.some((a) =>
-                    a.creatorId ? a.creatorId === user.id : a.creator === user.name,
-                  ) && (
-                    <div className="toon-card paper-note mb-6 flex flex-wrap items-center gap-4 rounded-lg bg-mint p-6">
-                      <RocketLaunch size={32} weight="duotone" className="shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-xl font-black">You have not shared anything yet</h3>
-                        <p className="mt-1 text-sm font-bold text-body">
-                          Publish your first project to appear on the leaderboard.
-                        </p>
+                                </div>
+                                <div className="mt-2 max-h-64 space-y-1 overflow-y-auto rounded-lg border-2 border-divider p-2">
+                                  {repositoryFiles.map((path) => (
+                                    <label
+                                      key={path}
+                                      className="flex items-start gap-2 rounded-md px-2 py-1.5 text-sm font-bold hover:bg-cream"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedRepositoryFiles.includes(path)}
+                                        onChange={(event) =>
+                                          setSelectedRepositoryFiles((selected) =>
+                                            event.target.checked
+                                              ? [...selected, path]
+                                              : selected.filter((item) => item !== path),
+                                          )
+                                        }
+                                        className="mt-1 shrink-0"
+                                      />
+                                      <span className="break-all">{path}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                                <Button
+                                  size="small"
+                                  type="button"
+                                  onClick={() => void importRepositoryFiles()}
+                                  disabled={
+                                    !selectedRepositoryFiles.length || repositoryFilesImporting
+                                  }
+                                  className="mt-3"
+                                >
+                                  {repositoryFilesImporting
+                                    ? "Importing selected files…"
+                                    : `Use ${selectedRepositoryFiles.length} selected file${selectedRepositoryFiles.length === 1 ? "" : "s"}`}
+                                </Button>
+                                <p className="mt-2 text-xs font-bold text-muted">
+                                  Selected files are combined into project documentation
+                                  (50,000-character limit).
+                                </p>
+                              </>
+                            )}
+                          </>
+                        )}
                       </div>
-                      <button
-                        onClick={() => {
-                          setShowForm(true);
-                          window.scrollTo({ top: 0, behavior: "smooth" });
-                        }}
-                        className="toon-button shrink-0 rounded-2xl bg-purple px-5 py-2.5 text-sm text-surface"
-                      >
-                        <Plus size={18} weight="bold" /> Submit your first project
-                      </button>
-                    </div>
-                  )}
-                <div className="mb-5 border-t-2 border-dashed border-divider pt-6">
-                  <p className="text-xs font-black uppercase text-purple">Catalog</p>
-                  <h2 className="mt-1 text-2xl font-black">Student projects</h2>
-                </div>
-                <div className="mb-6 flex flex-wrap gap-2">
-                  {categories.map(({ label, Icon }) => (
-                    <Button
-                      variant="outline-flat"
-                      key={label}
-                      onClick={() => setCategory(label)}
-                      aria-pressed={category === label}
-                    >
-                      <Icon size={19} weight="duotone" />
-                      {label}
-                    </Button>
-                  ))}
-                </div>
-                {appsLoading ? (
-                  <p className="font-bold text-muted">Loading projects…</p>
-                ) : appsError ? (
-                  <div className="toon-card paper-note rounded-lg p-10 text-center">
-                    <h3 className="mt-3 text-xl font-black">Could not load projects</h3>
-                    <p className="font-bold text-muted">{appsError}</p>
-                    <Button variant="secondary" onClick={() => void loadApps()} className="mt-5">
-                      Retry
-                    </Button>
+                    )}
+                    {docsTab === "preview" && (
+                      <div className="rounded-2xl border-[3px] border-ink bg-surface p-4">
+                        {docsFile && docs.trim() && (
+                          <p className="mb-3 text-xs font-black uppercase text-muted">
+                            Preview of {docsFile}
+                          </p>
+                        )}
+                        {docs.length > 50000 && (
+                          <div
+                            role="status"
+                            className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border-2 border-ink bg-yellow/40 p-3"
+                          >
+                            <p className="text-sm font-bold">
+                              This document is {docs.length.toLocaleString()} characters. It exceeds
+                              the 50,000-character project limit, but you can still download it.
+                            </p>
+                            <Button
+                              variant="surface"
+                              size="small"
+                              type="button"
+                              onClick={downloadDocumentation}
+                              className="shrink-0"
+                            >
+                              <DownloadSimple size={18} weight="bold" />
+                              Download Markdown
+                            </Button>
+                          </div>
+                        )}
+                        {docs.trim() ? (
+                          <PagedMarkdown text={docs} fadeTo="var(--color-surface)" />
+                        ) : (
+                          <p className="text-sm font-bold text-muted">
+                            Nothing to preview yet — write some markdown or upload a README.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
-                ) : apps.length ? (
-                  <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                    {apps.map((app) => (
-                      <AppCard
-                        key={app.id}
-                        app={app}
-                        voted={Boolean(app.viewerHasVoted)}
-                        onVote={(id) => void vote(id)}
-                        user={user ?? null}
-                        expanded={expandedId === app.id}
-                        onToggle={(id) => setExpandedId((cur) => (cur === id ? null : id))}
-                        onCommentAdded={(appId, count) => {
-                          setApps((items) =>
-                            items.map((a) => (a.id === appId ? { ...a, comments: count } : a)),
-                          );
-                          setFullApps((items) =>
-                            items.map((a) => (a.id === appId ? { ...a, comments: count } : a)),
-                          );
-                        }}
-                        profiles={profilesLookup}
-                        trophies={trophies}
-                        projectRanks={projectRanks}
-                        onOpenProfile={openProfile}
-                        onOpenApp={(id) => openApp(id)}
-                        onEditApp={(id) => openApp(id, true)}
-                      />
+                  {submitError && (
+                    <p role="alert" className="sm:col-span-2 text-sm font-bold text-ink">
+                      {submitError}
+                    </p>
+                  )}
+                  <Button
+                    type="submit"
+                    disabled={
+                      submitting || imageBusy || repositoryFilesLoading || repositoryFilesImporting
+                    }
+                    className="sm:col-span-2 sm:justify-self-start"
+                  >
+                    {submitting
+                      ? "Publishing…"
+                      : imageBusy
+                        ? "Processing images…"
+                        : repositoryFilesLoading || repositoryFilesImporting
+                          ? "Loading documentation…"
+                          : "Publish project"}{" "}
+                    <ArrowRight size={20} weight="bold" />
+                  </Button>
+                </form>
+              )}
+
+              {view === "project" && selectedAppId && (
+                <section className="mt-2">
+                  <ProjectView
+                    key={`${selectedAppId}:${projectEdit}`}
+                    appId={selectedAppId}
+                    currentUser={user ?? null}
+                    profiles={profilesLookup}
+                    startEditing={projectEdit}
+                    onBack={() => {
+                      window.history.pushState({}, "", "/store");
+                      setView("discover");
+                      setSelectedAppId(null);
+                      setProjectEdit(false);
+                    }}
+                    onOpenProfile={openProfile}
+                    trophies={trophies}
+                    projectTrophies={projectTrophies}
+                    onChanged={() => void loadApps()}
+                    onDeleted={() => {
+                      window.history.pushState({}, "", "/store");
+                      setView("discover");
+                      setSelectedAppId(null);
+                      setProjectEdit(false);
+                      void loadApps();
+                    }}
+                  />
+                </section>
+              )}
+
+              {view === "profile" && selectedProfileId && (
+                <section className="mt-2">
+                  <ProfileView
+                    key={selectedProfileId}
+                    profileId={
+                      selectedProfileId === "__me__" ? (user?.id ?? "__me__") : selectedProfileId
+                    }
+                    currentUser={user ?? null}
+                    trophies={trophies}
+                    projectTrophies={projectTrophies}
+                    profiles={profilesLookup}
+                    rankSummary={(() => {
+                      const resolvedId =
+                        selectedProfileId === "__me__" ? (user?.id ?? "__me__") : selectedProfileId;
+                      const rank = rankedDevelopers.findIndex((r) => r.profile.id === resolvedId);
+                      if (rank === -1) return undefined;
+                      return {
+                        rank: rank + 1,
+                        points: rankedDevelopers[rank].points,
+                        total: rankedDevelopers.length,
+                      };
+                    })()}
+                    onBack={() => {
+                      window.history.pushState({}, "", "/builders");
+                      setView("builders");
+                      setSelectedProfileId(null);
+                    }}
+                    onOpenApp={openAppFromProfile}
+                    onOpenProfile={openProfile}
+                    onClaimed={() => {
+                      if (!user) return;
+                      openProfile(user.id);
+                      setProfileTick((t) => t + 1);
+                      void loadApps();
+                    }}
+                    onProfileUpdated={() => setProfileTick((t) => t + 1)}
+                  />
+                </section>
+              )}
+
+              {view === "discover" && (
+                <section id="apps" className="mt-2 scroll-mt-6">
+                  {user &&
+                    !fullApps.some((a) =>
+                      a.creatorId ? a.creatorId === user.id : a.creator === user.name,
+                    ) && (
+                      <div className="toon-card paper-note mb-6 flex flex-wrap items-center gap-4 rounded-lg bg-mint p-6">
+                        <RocketLaunch size={32} weight="duotone" className="shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-xl font-black">You have not shared anything yet</h3>
+                          <p className="mt-1 text-sm font-bold text-body">
+                            Publish your first project to appear on the leaderboard.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setShowForm(true);
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          }}
+                          className="toon-button shrink-0 rounded-2xl bg-purple px-5 py-2.5 text-sm text-surface"
+                        >
+                          <Plus size={18} weight="bold" /> Submit your first project
+                        </button>
+                      </div>
+                    )}
+                  <div className="mb-5 border-t-2 border-dashed border-divider pt-6">
+                    <p className="text-xs font-black uppercase text-purple">Catalog</p>
+                    <h2 className="mt-1 text-2xl font-black">Student projects</h2>
+                  </div>
+                  <div className="mb-6 flex flex-wrap gap-2">
+                    {categories.map(({ label, Icon }) => (
+                      <Button
+                        variant="outline-flat"
+                        key={label}
+                        onClick={() => setCategory(label)}
+                        aria-pressed={category === label}
+                      >
+                        <Icon size={19} weight="duotone" />
+                        {label}
+                      </Button>
                     ))}
                   </div>
-                ) : (
-                  <div className="toon-card paper-note rounded-lg p-10 text-center">
-                    <MagnifyingGlass size={36} className="mx-auto" />
-                    <h3 className="mt-3 text-xl font-black">No projects found</h3>
-                    <p className="font-bold text-muted">Adjust your search or category filter.</p>
-                  </div>
-                )}
-              </section>
-            )}
+                  {appsLoading ? (
+                    <p className="font-bold text-muted">Loading projects…</p>
+                  ) : appsError ? (
+                    <div className="toon-card paper-note rounded-lg p-10 text-center">
+                      <h3 className="mt-3 text-xl font-black">Could not load projects</h3>
+                      <p className="font-bold text-muted">{appsError}</p>
+                      <Button variant="secondary" onClick={() => void loadApps()} className="mt-5">
+                        Retry
+                      </Button>
+                    </div>
+                  ) : apps.length ? (
+                    <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                      {apps.map((app) => (
+                        <AppCard
+                          key={app.id}
+                          app={app}
+                          voted={Boolean(app.viewerHasVoted)}
+                          onVote={(id) => void vote(id)}
+                          user={user ?? null}
+                          expanded={expandedId === app.id}
+                          onToggle={(id) => setExpandedId((cur) => (cur === id ? null : id))}
+                          onCommentAdded={(appId, count) => {
+                            setApps((items) =>
+                              items.map((a) => (a.id === appId ? { ...a, comments: count } : a)),
+                            );
+                            setFullApps((items) =>
+                              items.map((a) => (a.id === appId ? { ...a, comments: count } : a)),
+                            );
+                          }}
+                          profiles={profilesLookup}
+                          trophies={trophies}
+                          projectRanks={projectRanks}
+                          onOpenProfile={openProfile}
+                          onOpenApp={(id) => openApp(id)}
+                          onEditApp={(id) => openApp(id, true)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="toon-card paper-note rounded-lg p-10 text-center">
+                      <MagnifyingGlass size={36} className="mx-auto" />
+                      <h3 className="mt-3 text-xl font-black">No projects found</h3>
+                      <p className="font-bold text-muted">Adjust your search or category filter.</p>
+                    </div>
+                  )}
+                </section>
+              )}
 
-            {view === "builders" && (
-              <section id="builders" className="mt-2 scroll-mt-6">
-                <div className="mb-6">
-                  <p className="text-xs font-black uppercase text-purple">Student contributors</p>
-                  <h2 className="mt-1 text-2xl font-black">Developer profiles</h2>
-                  <label className="relative mt-4 block max-w-md">
-                    <span className="sr-only">Search developers</span>
-                    <MagnifyingGlass
-                      size={20}
-                      weight="bold"
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-muted"
-                    />
-                    <Input
-                      value={devQuery}
-                      onChange={(event) => setDevQuery(event.target.value)}
-                      className="py-2.5 pl-11 text-sm"
-                      placeholder="Search name or role…"
-                    />
-                  </label>
-                </div>
-                <div className="toon-card paper-note grid gap-x-6 gap-y-8 rounded-lg p-6 pt-10 sm:grid-cols-2 sm:p-8 sm:pt-12 lg:grid-cols-3">
-                  {filteredProfiles.map((p) => {
-                    const place = trophies.get(p.id);
-                    return (
-                      <article
-                        key={p.id}
-                        className={`min-w-0 ${place !== undefined ? "rounded-lg border-[3px] border-ink p-3" : ""}`}
-                        style={
-                          place === 1
-                            ? { backgroundColor: "#F7DE6B" }
-                            : place === 2
-                              ? { backgroundColor: "#DDE3EA" }
-                              : place === 3
-                                ? { backgroundColor: "#EAC39E" }
-                                : undefined
-                        }
-                      >
-                        <div className="flex items-center gap-3">
-                          <a
-                            href={`/builders/${encodeURIComponent(p.id)}`}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              openProfile(p.id);
-                            }}
-                            aria-label={`View ${p.name}'s profile`}
-                            className="shrink-0"
-                          >
-                            <Avatar name={p.name} color={p.color} imageUrl={p.imageUrl} size="md" />
-                          </a>
-                          <h3 className="min-w-0 flex-1 break-words text-lg font-black">
+              {view === "builders" && (
+                <section id="builders" className="mt-2 scroll-mt-6">
+                  <div className="mb-6">
+                    <p className="text-xs font-black uppercase text-purple">Student contributors</p>
+                    <h2 className="mt-1 text-2xl font-black">Developer profiles</h2>
+                    <label className="relative mt-4 block max-w-md">
+                      <span className="sr-only">Search developers</span>
+                      <MagnifyingGlass
+                        size={20}
+                        weight="bold"
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-muted"
+                      />
+                      <Input
+                        value={devQuery}
+                        onChange={(event) => setDevQuery(event.target.value)}
+                        className="py-2.5 pl-11 text-sm"
+                        placeholder="Search name or role…"
+                      />
+                    </label>
+                  </div>
+                  <div className="toon-card paper-note grid gap-x-6 gap-y-8 rounded-lg p-6 pt-10 sm:grid-cols-2 sm:p-8 sm:pt-12 lg:grid-cols-3">
+                    {filteredProfiles.map((p) => {
+                      const place = trophies.get(p.id);
+                      return (
+                        <article
+                          key={p.id}
+                          className={`min-w-0 ${place !== undefined ? "rounded-lg border-[3px] border-ink p-3" : ""}`}
+                          style={
+                            place === 1
+                              ? { backgroundColor: "#F7DE6B" }
+                              : place === 2
+                                ? { backgroundColor: "#DDE3EA" }
+                                : place === 3
+                                  ? { backgroundColor: "#EAC39E" }
+                                  : undefined
+                          }
+                        >
+                          <div className="flex items-center gap-3">
                             <a
                               href={`/builders/${encodeURIComponent(p.id)}`}
                               onClick={(e) => {
                                 e.preventDefault();
                                 openProfile(p.id);
                               }}
-                              className="underline-offset-4 hover:underline"
+                              aria-label={`View ${p.name}'s profile`}
+                              className="shrink-0"
                             >
-                              {p.name}
+                              <Avatar
+                                name={p.name}
+                                color={p.color}
+                                imageUrl={p.imageUrl}
+                                size="md"
+                              />
                             </a>
-                            {trophies.get(p.id) !== undefined && (
-                              <TrophyMark place={trophies.get(p.id) as 1 | 2 | 3} />
-                            )}
-                          </h3>
-                        </div>
-                        <p className="mt-2 text-sm text-muted">{p.role}</p>
-                        <p className="mt-3 text-xs font-black uppercase">
-                          {countFor(p)} project{countFor(p) === 1 ? "" : "s"} shared
-                        </p>
-                      </article>
-                    );
-                  })}
-                  {filteredProfiles.length === 0 && (
-                    <p className="font-bold text-muted sm:col-span-2 lg:col-span-3">
-                      No developers match “{devQuery.trim()}”.
-                    </p>
-                  )}
-                </div>
-              </section>
-            )}
-
-            {view === "community" && (
-              <section id="activity" className="mt-2 scroll-mt-6">
-                <div className="mb-6">
-                  <p className="text-xs font-black uppercase text-purple">Builder progress</p>
-                  <h2 className="mt-1 text-2xl font-black">Milestones wall</h2>
-                  <p className="mt-2 max-w-2xl font-bold text-muted">
-                    Ship an update on what you built, link the project, and cheer others on.
-                  </p>
-                </div>
-                <div className="grid items-start gap-7 lg:grid-cols-[1fr_.7fr]">
-                  <div className="min-w-0">
-                    <form
-                      onSubmit={(e) => void postMilestone(e)}
-                      className="toon-card paper-note rounded-lg bg-sky p-6 pt-10"
-                    >
-                      <h3 className="text-xl font-black">Share an update</h3>
-                      <label className="mt-4 block">
-                        <span className="sr-only">What did you ship or learn?</span>
-                        <textarea
-                          value={mBody}
-                          onChange={(e) => setMBody(e.target.value)}
-                          maxLength={280}
-                          required
-                          placeholder="What did you ship or learn?…"
-                          className="toon-input min-h-24"
-                        />
-                      </label>
-                      <div className="mt-3 flex flex-wrap items-center gap-3">
-                        <label className="min-w-0 flex-1">
-                          <span className="sr-only">Link one of your projects (optional)</span>
-                          <select
-                            value={mAppId}
-                            onChange={(e) => setMAppId(e.target.value)}
-                            className="toon-input py-2 text-sm"
-                          >
-                            <option value="">No linked project</option>
-                            {user &&
-                              fullApps
-                                .filter((a) =>
-                                  a.creatorId ? a.creatorId === user.id : a.creator === user.name,
-                                )
-                                .map((a) => (
-                                  <option key={a.id} value={a.id}>
-                                    {a.title}
-                                  </option>
-                                ))}
-                          </select>
-                        </label>
-                        <span className="text-xs font-black text-muted">{mBody.length}/280</span>
-                        <Button
-                          size="small"
-                          type="submit"
-                          disabled={mPosting || !mBody.trim()}
-                          className="text-sm"
-                        >
-                          {mPosting ? "Posting…" : "Post update"}
-                        </Button>
-                      </div>
-                      {mPostError && (
-                        <p role="alert" className="mt-3 text-sm font-bold">
-                          {mPostError}
-                        </p>
-                      )}
-                    </form>
-
-                    <label className="relative mt-6 block">
-                      <span className="sr-only">Search updates</span>
-                      <MagnifyingGlass
-                        size={20}
-                        weight="bold"
-                        className="absolute left-4 top-1/2 -translate-y-1/2 text-muted"
-                      />
-                      <input
-                        value={msQuery}
-                        onChange={(event) => setMsQuery(event.target.value)}
-                        className="toon-input py-2.5 pl-11 text-sm"
-                        placeholder="Search updates or builders…"
-                      />
-                    </label>
-
-                    {milestonesLoading ? (
-                      <p className="mt-6 font-bold text-muted">Loading updates…</p>
-                    ) : milestonesError ? (
-                      <div className="toon-card paper-note mt-6 rounded-lg p-10 text-center">
-                        <h3 className="text-xl font-black">Could not load updates</h3>
-                        <p className="font-bold text-muted">{milestonesError}</p>
-                      </div>
-                    ) : filteredMilestones.length ? (
-                      <ul className="mt-6 space-y-4">
-                        {filteredMilestones.map((m) => {
-                          const p = profilesLookup.get(m.authorId);
-                          const linked = m.appId
-                            ? fullApps.find((a) => a.id === m.appId)
-                            : undefined;
-                          return (
-                            <li key={m.id} className="toon-card rounded-lg bg-surface p-5">
-                              <div className="flex items-center gap-3">
-                                {p ? (
-                                  <button
-                                    onClick={() => openProfile(p.id)}
-                                    aria-label={`View ${p.name}'s profile`}
-                                    className="shrink-0"
-                                  >
-                                    <Avatar
-                                      name={p.name}
-                                      color={p.color}
-                                      imageUrl={p.imageUrl}
-                                      size="sm"
-                                    />
-                                  </button>
-                                ) : (
-                                  <Avatar name={m.authorName} color="sky" size="sm" />
-                                )}
-                                <div className="min-w-0">
-                                  <p className="truncate text-sm font-black">
-                                    {p ? (
-                                      <button
-                                        onClick={() => openProfile(p.id)}
-                                        className="underline decoration-2 underline-offset-4"
-                                      >
-                                        {m.authorName}
-                                      </button>
-                                    ) : (
-                                      m.authorName
-                                    )}
-                                    {trophies.get(m.authorId) !== undefined && (
-                                      <TrophyMark
-                                        place={trophies.get(m.authorId) as 1 | 2 | 3}
-                                        size={16}
-                                      />
-                                    )}
-                                  </p>
-                                  <p className="text-xs font-bold text-muted">
-                                    {new Date(m.createdAt).toLocaleString()}
-                                  </p>
-                                </div>
-                              </div>
-                              <p className="mt-3 leading-7">{m.body}</p>
-                              <div className="mt-3 flex flex-wrap items-center gap-3">
-                                {linked && (
-                                  <button
-                                    onClick={() => openApp(linked.id)}
-                                    className="rounded-md border-2 border-ink bg-cream px-2.5 py-1 text-xs font-black hover:bg-yellow"
-                                  >
-                                    View {linked.title}
-                                    {projectTrophies.get(linked.id) !== undefined && (
-                                      <TrophyMark
-                                        place={projectTrophies.get(linked.id) as 1 | 2 | 3}
-                                        size={14}
-                                      />
-                                    )}
-                                  </button>
-                                )}
-                                <Button
-                                  variant="vote"
-                                  onClick={() => void cheer(m)}
-                                  aria-pressed={Boolean(m.viewerHasCheered)}
-                                  disabled={!user || cheerPending.has(m.id)}
-                                  className={m.viewerHasCheered ? "" : "text-muted"}
-                                >
-                                  <HandsClapping
-                                    size={18}
-                                    weight={m.viewerHasCheered ? "fill" : "duotone"}
-                                  />
-                                  {m.cheers ?? 0}
-                                  <span className="sr-only">
-                                    {m.viewerHasCheered ? "Uncheer" : "Cheer this on"}
-                                  </span>
-                                </Button>
-                                <button
-                                  onClick={() => toggleThread(m.id)}
-                                  aria-expanded={openThreads.has(m.id)}
-                                  className="flex items-center gap-1 text-sm font-black text-muted"
-                                >
-                                  <ChatCircleDots size={18} weight="duotone" />
-                                  {openThreads.has(m.id) ? "Hide replies" : "Reply"}
-                                </button>
-                              </div>
-                              {openThreads.has(m.id) && (
-                                <div className="mt-3 border-t-2 border-dashed border-divider pt-4">
-                                  <Comments
-                                    appId={`ms:${m.id}`}
-                                    appTitle={`Update by ${m.authorName}`}
-                                    currentUser={user ?? null}
-                                    profiles={profilesLookup}
-                                    trophies={trophies}
-                                    onOpenProfile={openProfile}
-                                  />
-                                </div>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    ) : (
-                      <div className="toon-card paper-note mt-6 rounded-lg p-10 text-center">
-                        <h3 className="text-xl font-black">
-                          {milestones.length ? "No matching updates" : "No updates yet"}
-                        </h3>
-                        <p className="font-bold text-muted">
-                          {milestones.length
-                            ? "Try a different search."
-                            : "Be the first to share what you shipped."}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  <aside className="toon-card paper-note rounded-lg bg-yellow p-6 pt-10">
-                    <Sparkle size={35} weight="duotone" />
-                    <p className="mt-5 text-xs font-black uppercase">Community standard</p>
-                    <h2 className="mt-2 text-2xl font-black">Share work. Give useful feedback.</h2>
-                    <p className="mt-3 font-bold leading-7">
-                      Keep feedback constructive, credit collaborators, and make space for ideas in
-                      progress.
-                    </p>
-                  </aside>
-                </div>
-              </section>
-            )}
-
-            {view === "leaderboard" && (
-              <section className="mt-2">
-                <div className="mb-6">
-                  <p className="text-xs font-black uppercase text-purple">
-                    {boardTab === "developers"
-                      ? "Rank points = total upvotes"
-                      : "Ranked by project upvotes"}
-                  </p>
-                  <h2 className="mt-1 text-2xl font-black">
-                    {boardTab === "developers" ? "Top developers" : "Top projects"}
-                  </h2>
-                  <div
-                    className="mt-4 flex flex-wrap gap-2"
-                    role="tablist"
-                    aria-label="Leaderboard view"
-                  >
-                    {(["developers", "projects"] as const).map((tab) => (
-                      <button
-                        key={tab}
-                        role="tab"
-                        aria-selected={boardTab === tab}
-                        onClick={() => setBoardTab(tab)}
-                        className={`flex min-w-max items-center gap-2 rounded-md border-2 border-ink px-3 py-2 text-sm font-black capitalize ${boardTab === tab ? "bg-purple text-surface" : "bg-surface"}`}
-                      >
-                        {tab}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {boardTab === "developers" ? (
-                  rankedDevelopers.length ? (
-                    <ol className="space-y-4">
-                      {rankedDevelopers.map(({ profile: p, projects, points }, i) => (
-                        <li
-                          key={p.id}
-                          className="toon-card flex items-center gap-4 rounded-lg bg-surface p-4 sm:p-5"
-                          style={
-                            i === 0
-                              ? { backgroundColor: "#F7DE6B" }
-                              : i === 1
-                                ? { backgroundColor: "#DDE3EA" }
-                                : i === 2
-                                  ? { backgroundColor: "#EAC39E" }
-                                  : undefined
-                          }
-                        >
-                          <span
-                            aria-label={`Rank ${i + 1}`}
-                            className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border-[3px] border-ink text-base font-black ${i === 0 ? "bg-yellow" : i === 1 ? "bg-mint" : i === 2 ? "bg-pink" : "bg-cream"}`}
-                          >
-                            {i + 1}
-                          </span>
-                          <button
-                            onClick={() => openProfile(p.id)}
-                            aria-label={`View ${p.name}'s profile`}
-                            className="shrink-0"
-                          >
-                            <Avatar name={p.name} color={p.color} imageUrl={p.imageUrl} size="md" />
-                          </button>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-lg font-black">
-                              <button
-                                onClick={() => openProfile(p.id)}
+                            <h3 className="min-w-0 flex-1 wrap-break-word text-lg font-black">
+                              <a
+                                href={`/builders/${encodeURIComponent(p.id)}`}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  openProfile(p.id);
+                                }}
                                 className="underline-offset-4 hover:underline"
                               >
                                 {p.name}
-                              </button>
+                              </a>
                               {trophies.get(p.id) !== undefined && (
                                 <TrophyMark place={trophies.get(p.id) as 1 | 2 | 3} />
                               )}
-                            </p>
-                            <p className="truncate text-sm font-bold text-muted">
-                              {projects} {projects === 1 ? "project" : "projects"}
-                            </p>
+                            </h3>
                           </div>
-                          <p className="flex shrink-0 items-center gap-1.5 text-base font-black">
-                            <Trophy
-                              size={20}
-                              weight="duotone"
-                              className={i === 0 ? "text-purple" : "text-muted"}
-                            />
-                            {points}{" "}
-                            <span className="text-xs uppercase text-muted">
-                              {points === 1 ? "pt" : "pts"}
-                            </span>
+                          <p className="mt-2 text-sm text-muted">{p.role}</p>
+                          <p className="mt-3 text-xs font-black uppercase">
+                            {countFor(p)} project{countFor(p) === 1 ? "" : "s"} shared
                           </p>
-                        </li>
+                        </article>
+                      );
+                    })}
+                    {filteredProfiles.length === 0 && (
+                      <p className="font-bold text-muted sm:col-span-2 lg:col-span-3">
+                        No developers match “{devQuery.trim()}”.
+                      </p>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {view === "feed" && (
+                <section id="feed" className="mx-auto mt-2 max-w-3xl scroll-mt-6">
+                  <div className="mb-6">
+                    <p className="flex items-center gap-2 text-xs font-black uppercase text-purple">
+                      <Newspaper size={18} weight="duotone" />
+                      SPECS community
+                    </p>
+                    <h2 className="mt-1 text-3xl font-black">The Feed</h2>
+                    <p className="mt-2 font-bold text-muted">
+                      What builders are making, learning, and talking about.
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                      <form
+                        onSubmit={(e) => void postMilestone(e)}
+                        className="toon-card rounded-lg bg-surface p-4 sm:p-5"
+                      >
+                        <h3 className="text-lg font-black">Share with the community</h3>
+                        <label className="mt-3 block">
+                          <span className="sr-only">What did you ship or learn?</span>
+                          <textarea
+                            value={mBody}
+                            onChange={(e) => setMBody(e.target.value)}
+                            maxLength={280}
+                            required
+                            placeholder="What did you ship or learn?…"
+                            className="toon-input min-h-20"
+                          />
+                        </label>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <label className="min-w-0 flex-1">
+                            <span className="sr-only">Attach one of your projects (optional)</span>
+                            <select
+                              value={mAppId}
+                              onChange={(e) => setMAppId(e.target.value)}
+                              className="toon-input py-2 text-sm"
+                            >
+                              <option value="">No linked project</option>
+                              {user &&
+                                fullApps
+                                  .filter((a) =>
+                                    a.creatorId ? a.creatorId === user.id : a.creator === user.name,
+                                  )
+                                  .map((a) => (
+                                    <option key={a.id} value={a.id}>
+                                      {a.title}
+                                    </option>
+                                  ))}
+                            </select>
+                          </label>
+                          <span className="text-xs font-black text-muted">{mBody.length}/280</span>
+                          <Button
+                            size="small"
+                            type="submit"
+                            disabled={mPosting || !mBody.trim()}
+                            className="text-sm"
+                          >
+                            {mPosting ? "Posting…" : "Post update"}
+                          </Button>
+                        </div>
+                        {mPostError && (
+                          <p role="alert" className="mt-3 text-sm font-bold">
+                            {mPostError}
+                          </p>
+                        )}
+                      </form>
+
+                      <label className="relative mt-4 block">
+                        <span className="sr-only">Search updates</span>
+                        <MagnifyingGlass
+                          size={20}
+                          weight="bold"
+                          className="absolute left-4 top-1/2 -translate-y-1/2 text-muted"
+                        />
+                        <input
+                          value={msQuery}
+                          onChange={(event) => setMsQuery(event.target.value)}
+                          className="toon-input py-2.5 pl-11 text-sm"
+                          placeholder="Search posts or builders…"
+                        />
+                      </label>
+
+                      {milestonesLoading ? (
+                        <p className="mt-6 font-bold text-muted">Loading feed…</p>
+                      ) : milestonesError ? (
+                        <div className="toon-card mt-4 rounded-lg p-8 text-center">
+                          <h3 className="text-xl font-black">Could not load the feed</h3>
+                          <p className="font-bold text-muted">{milestonesError}</p>
+                        </div>
+                      ) : filteredMilestones.length ? (
+                        <ul className="mt-4 space-y-3">
+                          {filteredMilestones.map((m) => {
+                            const p = profilesLookup.get(m.authorId);
+                            const linked = m.appId
+                              ? fullApps.find((a) => a.id === m.appId)
+                              : undefined;
+                            return (
+                              <li key={m.id} className="toon-card rounded-lg bg-surface p-4 sm:p-5">
+                                <div className="flex items-center gap-3">
+                                  {p ? (
+                                    <button
+                                      onClick={() => openProfile(p.id)}
+                                      aria-label={`View ${p.name}'s profile`}
+                                      className="shrink-0"
+                                    >
+                                      <Avatar
+                                        name={p.name}
+                                        color={p.color}
+                                        imageUrl={p.imageUrl}
+                                        size="sm"
+                                      />
+                                    </button>
+                                  ) : (
+                                    <Avatar name={m.authorName} color="sky" size="sm" />
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-black">
+                                      {p ? (
+                                        <button
+                                          onClick={() => openProfile(p.id)}
+                                          className="underline decoration-2 underline-offset-4"
+                                        >
+                                          {m.authorName}
+                                        </button>
+                                      ) : (
+                                        m.authorName
+                                      )}
+                                      {trophies.get(m.authorId) !== undefined && (
+                                        <TrophyMark
+                                          place={trophies.get(m.authorId) as 1 | 2 | 3}
+                                          size={16}
+                                        />
+                                      )}
+                                    </p>
+                                    <p className="text-xs font-bold text-muted">
+                                      {new Date(m.createdAt).toLocaleString()}
+                                    </p>
+                                  </div>
+                                </div>
+                                <p className="mt-3 leading-7">{m.body}</p>
+                                <div className="mt-3 flex flex-wrap items-center gap-3">
+                                  {linked && (
+                                    <button
+                                      onClick={() => openApp(linked.id)}
+                                      className="rounded-md border-2 border-ink bg-cream px-2.5 py-1 text-xs font-black hover:bg-yellow"
+                                    >
+                                      {linked.title}
+                                      {projectTrophies.get(linked.id) !== undefined && (
+                                        <TrophyMark
+                                          place={projectTrophies.get(linked.id) as 1 | 2 | 3}
+                                          size={14}
+                                        />
+                                      )}
+                                    </button>
+                                  )}
+                                  <Button
+                                    variant="vote"
+                                    onClick={() => void cheer(m)}
+                                    aria-pressed={Boolean(m.viewerHasCheered)}
+                                    disabled={!user || cheerPending.has(m.id)}
+                                    className={m.viewerHasCheered ? "" : "text-muted"}
+                                  >
+                                    <HandsClapping
+                                      size={18}
+                                      weight={m.viewerHasCheered ? "fill" : "duotone"}
+                                    />
+                                    {m.cheers ?? 0}
+                                    <span className="sr-only">
+                                      {m.viewerHasCheered ? "Uncheer" : "Cheer this on"}
+                                    </span>
+                                  </Button>
+                                  <button
+                                    onClick={() => toggleThread(m.id)}
+                                    aria-expanded={openThreads.has(m.id)}
+                                    className="flex items-center gap-1 text-sm font-black text-muted"
+                                  >
+                                    <ChatCircleDots size={18} weight="duotone" />
+                                    {openThreads.has(m.id) ? "Hide comments" : "Comment"}
+                                  </button>
+                                </div>
+                                {openThreads.has(m.id) && (
+                                  <div className="mt-3 border-t-2 border-dashed border-divider pt-4">
+                                    <Comments
+                                      appId={`ms:${m.id}`}
+                                      appTitle={`Update by ${m.authorName}`}
+                                      currentUser={user ?? null}
+                                      profiles={profilesLookup}
+                                      trophies={trophies}
+                                      onOpenProfile={openProfile}
+                                    />
+                                  </div>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      ) : (
+                        <div className="toon-card paper-note mt-6 rounded-lg p-10 text-center">
+                          <h3 className="text-xl font-black">
+                            {milestones.length ? "No matching posts" : "Your feed starts here"}
+                          </h3>
+                          <p className="font-bold text-muted">
+                            {milestones.length
+                              ? "Try a different search."
+                              : "Share what you’re building and start a conversation."}
+                          </p>
+                        </div>
+                      )}
+                  </div>
+                </section>
+              )}
+
+              {view === "leaderboard" && (
+                <section className="mt-2">
+                  <div className="mb-6">
+                    <p className="text-xs font-black uppercase text-purple">
+                      {boardTab === "developers"
+                        ? "Rank points = total upvotes"
+                        : "Ranked by project upvotes"}
+                    </p>
+                    <h2 className="mt-1 text-2xl font-black">
+                      {boardTab === "developers" ? "Top developers" : "Top projects"}
+                    </h2>
+                    <div
+                      className="mt-4 flex flex-wrap gap-2"
+                      role="tablist"
+                      aria-label="Leaderboard view"
+                    >
+                      {(["developers", "projects"] as const).map((tab) => (
+                        <button
+                          key={tab}
+                          role="tab"
+                          aria-selected={boardTab === tab}
+                          onClick={() => setBoardTab(tab)}
+                          className={`flex min-w-max items-center gap-2 rounded-md border-2 border-ink px-3 py-2 text-sm font-black capitalize ${boardTab === tab ? "bg-purple text-surface" : "bg-surface"}`}
+                        >
+                          {tab}
+                        </button>
                       ))}
+                    </div>
+                  </div>
+                  {boardTab === "developers" ? (
+                    rankedDevelopers.length ? (
+                      <ol className="space-y-4">
+                        {rankedDevelopers.map(({ profile: p, projects, points }, i) => (
+                          <li
+                            key={p.id}
+                            className="toon-card flex items-center gap-4 rounded-lg bg-surface p-4 sm:p-5"
+                            style={
+                              i === 0
+                                ? { backgroundColor: "#F7DE6B" }
+                                : i === 1
+                                  ? { backgroundColor: "#DDE3EA" }
+                                  : i === 2
+                                    ? { backgroundColor: "#EAC39E" }
+                                    : undefined
+                            }
+                          >
+                            <span
+                              aria-label={`Rank ${i + 1}`}
+                              className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border-[3px] border-ink text-base font-black ${i === 0 ? "bg-yellow" : i === 1 ? "bg-mint" : i === 2 ? "bg-pink" : "bg-cream"}`}
+                            >
+                              {i + 1}
+                            </span>
+                            <button
+                              onClick={() => openProfile(p.id)}
+                              aria-label={`View ${p.name}'s profile`}
+                              className="shrink-0"
+                            >
+                              <Avatar
+                                name={p.name}
+                                color={p.color}
+                                imageUrl={p.imageUrl}
+                                size="md"
+                              />
+                            </button>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-lg font-black">
+                                <button
+                                  onClick={() => openProfile(p.id)}
+                                  className="underline-offset-4 hover:underline"
+                                >
+                                  {p.name}
+                                </button>
+                                {trophies.get(p.id) !== undefined && (
+                                  <TrophyMark place={trophies.get(p.id) as 1 | 2 | 3} />
+                                )}
+                              </p>
+                              <p className="truncate text-sm font-bold text-muted">
+                                {projects} {projects === 1 ? "project" : "projects"}
+                              </p>
+                            </div>
+                            <p className="flex shrink-0 items-center gap-1.5 text-base font-black">
+                              <Trophy
+                                size={20}
+                                weight="duotone"
+                                className={i === 0 ? "text-purple" : "text-muted"}
+                              />
+                              {points}{" "}
+                              <span className="text-xs uppercase text-muted">
+                                {points === 1 ? "pt" : "pts"}
+                              </span>
+                            </p>
+                          </li>
+                        ))}
+                      </ol>
+                    ) : (
+                      <div className="toon-card paper-note rounded-lg p-10 text-center">
+                        <h3 className="text-xl font-black">No developers yet</h3>
+                        <p className="font-bold text-muted">Check back once builders join.</p>
+                      </div>
+                    )
+                  ) : rankedProjects.length ? (
+                    <ol className="space-y-4">
+                      {rankedProjects.map((app, i) => {
+                        const creator = app.creatorId
+                          ? profilesLookup.get(app.creatorId)
+                          : [...profilesLookup.values()].find(
+                              (p) => p.name.toLowerCase() === app.creator.toLowerCase(),
+                            );
+                        return (
+                          <li
+                            key={app.id}
+                            className="toon-card flex items-center gap-4 rounded-lg bg-surface p-4 sm:p-5"
+                            style={
+                              i === 0
+                                ? { backgroundColor: "#F7DE6B" }
+                                : i === 1
+                                  ? { backgroundColor: "#DDE3EA" }
+                                  : i === 2
+                                    ? { backgroundColor: "#EAC39E" }
+                                    : undefined
+                            }
+                          >
+                            <span
+                              aria-label={`Rank ${i + 1}`}
+                              className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border-[3px] border-ink text-base font-black ${i === 0 ? "bg-yellow" : i === 1 ? "bg-mint" : i === 2 ? "bg-pink" : "bg-cream"}`}
+                            >
+                              {i + 1}
+                            </span>
+                            <button
+                              onClick={() => openApp(app.id)}
+                              aria-label={`Open ${app.title} details`}
+                              className="min-w-0 flex-1 text-left"
+                            >
+                              <span className="block truncate text-lg font-black underline-offset-4 hover:underline">
+                                {app.title}
+                                {projectTrophies.get(app.id) !== undefined && (
+                                  <TrophyMark place={projectTrophies.get(app.id) as 1 | 2 | 3} />
+                                )}
+                              </span>
+                              <span className="block truncate text-sm font-bold text-muted">
+                                by {creator ? creator.name : app.creator}
+                              </span>
+                            </button>
+                            <p className="flex shrink-0 items-center gap-1.5 text-base font-black">
+                              <Heart
+                                size={20}
+                                weight="duotone"
+                                className={i === 0 ? "text-vote" : "text-muted"}
+                              />
+                              {app.votes}{" "}
+                              <span className="text-xs uppercase text-muted">
+                                {app.votes === 1 ? "vote" : "votes"}
+                              </span>
+                            </p>
+                          </li>
+                        );
+                      })}
                     </ol>
                   ) : (
                     <div className="toon-card paper-note rounded-lg p-10 text-center">
-                      <h3 className="text-xl font-black">No developers yet</h3>
-                      <p className="font-bold text-muted">Check back once builders join.</p>
+                      <h3 className="text-xl font-black">No projects yet</h3>
+                      <p className="font-bold text-muted">Check back once builders share work.</p>
                     </div>
-                  )
-                ) : rankedProjects.length ? (
-                  <ol className="space-y-4">
-                    {rankedProjects.map((app, i) => {
-                      const creator = app.creatorId
-                        ? profilesLookup.get(app.creatorId)
-                        : [...profilesLookup.values()].find(
-                            (p) => p.name.toLowerCase() === app.creator.toLowerCase(),
-                          );
-                      return (
-                        <li
-                          key={app.id}
-                          className="toon-card flex items-center gap-4 rounded-lg bg-surface p-4 sm:p-5"
-                          style={
-                            i === 0
-                              ? { backgroundColor: "#F7DE6B" }
-                              : i === 1
-                                ? { backgroundColor: "#DDE3EA" }
-                                : i === 2
-                                  ? { backgroundColor: "#EAC39E" }
-                                  : undefined
-                          }
-                        >
-                          <span
-                            aria-label={`Rank ${i + 1}`}
-                            className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border-[3px] border-ink text-base font-black ${i === 0 ? "bg-yellow" : i === 1 ? "bg-mint" : i === 2 ? "bg-pink" : "bg-cream"}`}
-                          >
-                            {i + 1}
-                          </span>
-                          <button
-                            onClick={() => openApp(app.id)}
-                            aria-label={`Open ${app.title} details`}
-                            className="min-w-0 flex-1 text-left"
-                          >
-                            <span className="block truncate text-lg font-black underline-offset-4 hover:underline">
-                              {app.title}
-                              {projectTrophies.get(app.id) !== undefined && (
-                                <TrophyMark place={projectTrophies.get(app.id) as 1 | 2 | 3} />
-                              )}
-                            </span>
-                            <span className="block truncate text-sm font-bold text-muted">
-                              by {creator ? creator.name : app.creator}
-                            </span>
-                          </button>
-                          <p className="flex shrink-0 items-center gap-1.5 text-base font-black">
-                            <Heart
-                              size={20}
-                              weight="duotone"
-                              className={i === 0 ? "text-vote" : "text-muted"}
-                            />
-                            {app.votes}{" "}
-                            <span className="text-xs uppercase text-muted">
-                              {app.votes === 1 ? "vote" : "votes"}
-                            </span>
-                          </p>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                ) : (
-                  <div className="toon-card paper-note rounded-lg p-10 text-center">
-                    <h3 className="text-xl font-black">No projects yet</h3>
-                    <p className="font-bold text-muted">Check back once builders share work.</p>
-                  </div>
-                )}
-              </section>
-            )}
+                  )}
+                </section>
+              )}
 
-            {view === "settings" && (
-              <section className="mt-2">
-                <SettingsView profile={myProfile} onChanged={() => setProfileTick((t) => t + 1)} />
-              </section>
-            )}
+              {view === "settings" && (
+                <section className="mt-2">
+                  <SettingsView
+                    profile={myProfile}
+                    onChanged={() => setProfileTick((t) => t + 1)}
+                  />
+                </section>
+              )}
 
-            <footer className="mb-8 mt-12 border-t-2 border-dashed border-muted py-7 text-center text-sm font-bold text-muted">
-              CodeCanvas is built together by the SPECS community.
-            </footer>
-          </div>
-        </ErrorBoundary>
+              <footer className="mb-8 mt-12 border-t-2 border-dashed border-muted py-7 text-center text-sm font-bold text-muted">
+                CodeCanvas is built together by the SPECS community.
+              </footer>
+            </div>
+          </ErrorBoundary>
+        </div>
       </div>
     </div>
   );

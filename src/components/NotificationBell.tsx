@@ -12,6 +12,7 @@ import {
 import UploadStamp from "./UploadStamp";
 import { arrivalKeyOf } from "../utils/notifications";
 import type { NotificationItem } from "../data/types";
+import { Button } from "./Button";
 
 type NotificationBellProps = {
   items: NotificationItem[];
@@ -19,8 +20,10 @@ type NotificationBellProps = {
   /** First-seen timestamps per id — vote/collab aggregates display these. */
   arrivalAt: Record<string, string>;
   loading: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onOpenApp: (appId: string) => void;
-  onOpenCommunity: () => void;
+  onOpenFeed: () => void;
   onMarkAllRead: () => void;
   onMarkRead: (id: string) => void;
   onDeleteAll: () => void;
@@ -40,7 +43,7 @@ const KIND_LABEL: Record<NotificationItem["kind"], string> = {
   reply: "Reply",
   vote: "Upvotes",
   project: "New project",
-  update: "Community",
+  update: "Feed",
   collab: "Collaborator",
 };
 
@@ -49,30 +52,31 @@ export default function NotificationBell({
   unreadIds,
   arrivalAt,
   loading,
+  open,
+  onOpenChange,
   onOpenApp,
-  onOpenCommunity,
+  onOpenFeed,
   onMarkAllRead,
   onMarkRead,
   onDeleteAll,
 }: NotificationBellProps) {
-  const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const unread = items.filter((i) => unreadIds.has(i.id)).length;
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") onOpenChange(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [open, onOpenChange]);
 
   const go = (item: NotificationItem) => {
     onMarkRead(item.id);
-    setOpen(false);
+    onOpenChange(false);
     if (item.appId) onOpenApp(item.appId);
-    else onOpenCommunity();
+    else onOpenFeed();
   };
 
   // Aggregates carry their project's date as createdAt (no event time
@@ -91,14 +95,16 @@ export default function NotificationBell({
 
   return (
     <div className="relative">
-      <button
+      <Button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="true"
+        variant="surface"
+        size="compact-icon"
+        onClick={() => onOpenChange(!open)}
+        aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
         title="Notifications"
-        className="relative rounded-lg border-2 border-ink bg-surface p-2 text-ink shadow-[2px_2px_0_var(--color-ink)] hover:bg-cream"
+        className="relative text-ink"
       >
         <Bell size={20} weight={unread > 0 ? "fill" : "duotone"} aria-hidden="true" />
         {unread > 0 && (
@@ -109,21 +115,21 @@ export default function NotificationBell({
             {unread > 99 ? "99+" : unread}
           </span>
         )}
-      </button>
+      </Button>
 
       {open && (
         <>
           <button
             type="button"
             aria-label="Close notifications"
-            onClick={() => setOpen(false)}
+            onClick={() => onOpenChange(false)}
             className="fixed inset-0 z-40 cursor-default bg-transparent"
           />
           <div
             ref={panelRef}
-            role="region"
+            role="dialog"
             aria-label="Notifications"
-            className="toon-card absolute right-0 top-full z-50 mt-2 flex max-h-[70vh] w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg bg-surface"
+            className="toon-card absolute right-0 top-full z-50 mt-2 flex max-h-[70vh] w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl bg-surface text-ink"
           >
             <div className="flex shrink-0 items-center justify-between gap-2 border-b-[3px] border-ink p-3">
               <h2 className="text-base font-black">Notifications{unread > 0 && ` (${unread})`}</h2>
@@ -149,10 +155,10 @@ export default function NotificationBell({
                 )}
                 <button
                   type="button"
-                  onClick={() => setOpen(false)}
+                  onClick={() => onOpenChange(false)}
                   aria-label="Close notifications"
                   autoFocus
-                  className="rounded-full border-2 border-ink bg-surface p-1"
+                  className="rounded-full border-2 border-ink bg-surface p-1 hover:bg-cream"
                 >
                   <X size={14} weight="bold" />
                 </button>
@@ -167,7 +173,7 @@ export default function NotificationBell({
                   <Bell size={28} weight="duotone" className="mx-auto text-muted" />
                   <p className="mt-2 font-black">All caught up</p>
                   <p className="mt-1 text-sm font-bold text-muted">
-                    Comments, replies, upvotes, new projects, and community updates land here.
+                    Comments, replies, upvotes, new projects, and Feed posts land here.
                   </p>
                 </div>
               ) : (
