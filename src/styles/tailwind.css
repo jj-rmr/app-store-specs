@@ -128,18 +128,18 @@
   --color-surface: #ffffff;
 }
 
-/* Midnight is the only dark palette: black surfaces, grayscale accents,
-   white text, and one deep antique gold. Gold stays dark enough to read
-   light text on buttons. Tape, grid lines, and alert colors are shared
-   because they read fine on dark. */
+/* Midnight is the only dark palette: dark surfaces + light text, but the
+   accent hues stay saturated (brightened where needed so they read on dark)
+   instead of going grayscale — the old gray wash is what looked inverted.
+   Tape, grid lines, and alert colors are shared because they read fine. */
 :root[data-palette="midnight"] {
   color-scheme: dark;
-  --color-purple: #a3a3ab;
-  --color-yellow: #97742a;
-  --color-mint: #85858d;
-  --color-pink: #6f6f77;
-  --color-sky: #5a5a62;
-  --color-lavender: #48484f;
+  --color-purple: #8b7cf6;
+  --color-yellow: #e8c451;
+  --color-mint: #7dd3b8;
+  --color-pink: #f2a3b3;
+  --color-sky: #7cc7e8;
+  --color-lavender: #b9b3d0;
   --color-paper: #101013;
   --color-cream: #17171b;
   --color-surface: #202026;

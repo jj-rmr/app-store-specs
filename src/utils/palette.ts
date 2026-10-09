@@ -46,7 +46,7 @@ const META: Record<SitePaletteId, { label: string; swatches: string[] }> = {
   },
   midnight: {
     label: "Midnight",
-    swatches: ["#a3a3ab", "#97742a", "#85858d", "#6f6f77", "#101013"],
+    swatches: ["#8b7cf6", "#e8c451", "#7dd3b8", "#f2a3b3", "#7cc7e8"],
   },
 };
 
